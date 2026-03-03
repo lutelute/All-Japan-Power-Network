@@ -1,0 +1,230 @@
+# Japan Power Grid - Region Configuration
+# Defines all 10 regional grids + national backbone
+# Data source: OpenStreetMap (power=substation, power=line)
+
+# Frequency zones
+# 50 Hz: Hokkaido, Tohoku, Tokyo (eastern Japan)
+# 60 Hz: Chubu, Hokuriku, Kansai, Chugoku, Shikoku, Kyushu, Okinawa (western Japan)
+# Note: Chubu is geographically in central Japan but operates at 60 Hz
+# The 50/60 Hz boundary runs through Niigata and Shizuoka prefectures
+
+regions:
+  hokkaido:
+    name_en: "Hokkaido"
+    name_ja: "北海道"
+    frequency_hz: 50
+    utility: "北海道電力"
+    utility_en: "Hokkaido Electric Power"
+    voltage_levels:
+      level_1_kv: 275
+      level_2_kv: 187
+      lower_kv: [66]
+    bounding_box:
+      lat_min: 41.3
+      lat_max: 45.6
+      lon_min: 139.3
+      lon_max: 145.8
+    status: "active"
+
+  tohoku:
+    name_en: "Tohoku"
+    name_ja: "東北"
+    frequency_hz: 50
+    utility: "東北電力"
+    utility_en: "Tohoku Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [154, 66]
+    bounding_box:
+      lat_min: 36.8
+      lat_max: 41.5
+      lon_min: 139.0
+      lon_max: 142.1
+    status: "active"
+
+  tokyo:
+    name_en: "Tokyo"
+    name_ja: "東京"
+    frequency_hz: 50
+    utility: "東京電力"
+    utility_en: "Tokyo Electric Power (TEPCO)"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [154, 66]
+    bounding_box:
+      lat_min: 34.8
+      lat_max: 37.0
+      lon_min: 138.4
+      lon_max: 140.9
+    status: "active"
+
+  chubu:
+    name_en: "Chubu"
+    name_ja: "中部"
+    frequency_hz: 60
+    utility: "中部電力"
+    utility_en: "Chubu Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [154, 77]
+    bounding_box:
+      lat_min: 34.6
+      lat_max: 37.0
+      lon_min: 136.0
+      lon_max: 139.2
+    status: "active"
+
+  hokuriku:
+    name_en: "Hokuriku"
+    name_ja: "北陸"
+    frequency_hz: 60
+    utility: "北陸電力"
+    utility_en: "Hokuriku Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [154, 77]
+    bounding_box:
+      lat_min: 35.7
+      lat_max: 37.6
+      lon_min: 136.0
+      lon_max: 137.9
+    status: "active"
+
+  kansai:
+    name_en: "Kansai"
+    name_ja: "関西"
+    frequency_hz: 60
+    utility: "関西電力"
+    utility_en: "Kansai Electric Power (KEPCO)"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [154, 77]
+    bounding_box:
+      lat_min: 33.4
+      lat_max: 35.8
+      lon_min: 134.5
+      lon_max: 136.8
+    status: "active"
+
+  chugoku:
+    name_en: "Chugoku"
+    name_ja: "中国"
+    frequency_hz: 60
+    utility: "中国電力"
+    utility_en: "Chugoku Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 275
+      lower_kv: [220, 110]
+    bounding_box:
+      lat_min: 33.7
+      lat_max: 35.6
+      lon_min: 130.8
+      lon_max: 134.5
+    status: "active"
+
+  shikoku:
+    name_en: "Shikoku"
+    name_ja: "四国"
+    frequency_hz: 60
+    utility: "四国電力"
+    utility_en: "Shikoku Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 187
+      lower_kv: [110, 66]
+    bounding_box:
+      lat_min: 32.7
+      lat_max: 34.4
+      lon_min: 132.0
+      lon_max: 134.8
+    status: "active"
+
+  kyushu:
+    name_en: "Kyushu"
+    name_ja: "九州"
+    frequency_hz: 60
+    utility: "九州電力"
+    utility_en: "Kyushu Electric Power"
+    voltage_levels:
+      level_1_kv: 500
+      level_2_kv: 220
+      lower_kv: [110, 66]
+    bounding_box:
+      lat_min: 31.0
+      lat_max: 34.3
+      lon_min: 129.5
+      lon_max: 132.1
+    status: "active"
+
+  okinawa:
+    name_en: "Okinawa"
+    name_ja: "沖縄"
+    frequency_hz: 60
+    utility: "沖縄電力"
+    utility_en: "Okinawa Electric Power"
+    voltage_levels:
+      level_1_kv: 132
+      level_2_kv: 66
+      lower_kv: []
+    bounding_box:
+      lat_min: 24.0
+      lat_max: 27.9
+      lon_min: 122.9
+      lon_max: 131.3
+    status: "wip"
+    notes: "OSM data may be incomplete for this region."
+
+# National backbone (covers inter-regional transmission lines)
+national_backbone:
+  name_en: "National Backbone"
+  name_ja: "全国基幹系統"
+  frequency_hz: null  # Mixed: contains both 50 Hz and 60 Hz sections
+  notes: "Covers inter-regional 500kV backbone and major interconnection lines"
+
+# Frequency boundary definition
+frequency_boundary:
+  description: "The 50/60 Hz boundary runs through central Japan"
+  east_50hz:
+    - "hokkaido"
+    - "tohoku"
+    - "tokyo"
+  west_60hz:
+    - "chubu"
+    - "hokuriku"
+    - "kansai"
+    - "chugoku"
+    - "shikoku"
+    - "kyushu"
+    - "okinawa"
+  frequency_converter_stations:
+    - name: "新信濃変換所"
+      name_en: "Shin-Shinano Converter"
+      from_region: "tokyo"
+      to_region: "chubu"
+      capacity_mw: 600
+      type: "frequency_converter"
+    - name: "佐久間周波数変換所"
+      name_en: "Sakuma Frequency Converter"
+      from_region: "tokyo"
+      to_region: "chubu"
+      capacity_mw: 300
+      type: "frequency_converter"
+    - name: "東清水変換所"
+      name_en: "Higashi-Shimizu Converter"
+      from_region: "tokyo"
+      to_region: "chubu"
+      capacity_mw: 300
+      type: "frequency_converter"
+
+# Japan overall bounding box (for coordinate validation)
+japan_bounding_box:
+  lat_min: 24.0
+  lat_max: 46.0
+  lon_min: 122.0
+  lon_max: 154.0

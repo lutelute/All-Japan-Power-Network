@@ -1,0 +1,187 @@
+# Japan Power Grid - Inter-Regional Interconnection Lines
+# Defines all cross-regional transmission interconnections
+#
+# These links connect the 10 regional power grids into the national system.
+# Data sourced from OCCTO (Organization for Cross-regional Coordination
+# of Transmission Operators) public planning documents.
+#
+# Types:
+#   AC   - Standard AC transmission line
+#   HVDC - High Voltage Direct Current (used for undersea cables)
+#   FC   - Frequency Converter (bridges the 50/60 Hz boundary)
+#
+# Capacity values represent the transmission capability (運用容量)
+# as published by OCCTO for wide-area system operation.
+
+interconnections:
+  - id: "ic_001"
+    name_ja: "北本連系線"
+    name_en: "Hokkaido-Honshu HVDC Link"
+    from_region: "hokkaido"
+    to_region: "tohoku"
+    capacity_mw: 900
+    voltage_kv: 250
+    type: "HVDC"
+    description: "Undersea HVDC cable connecting Hokkaido to Tohoku (北海道本州間連系設備)"
+    route:
+      from_substation_ja: "函館変換所"
+      from_substation_en: "Hakodate Converter"
+      to_substation_ja: "上北変換所"
+      to_substation_en: "Kamikita Converter"
+    notes: "HVDC undersea cable across Tsugaru Strait. Capacity upgraded from 600 MW to 900 MW (March 2019)."
+
+  - id: "ic_002"
+    name_ja: "東北東京間連系線"
+    name_en: "Tohoku-Tokyo Interconnection"
+    from_region: "tohoku"
+    to_region: "tokyo"
+    capacity_mw: 5550
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Tohoku and Tokyo regions"
+    route:
+      from_substation_ja: "相馬変電所"
+      from_substation_en: "Soma Substation"
+      to_substation_ja: "新いわき変電所"
+      to_substation_en: "Shin-Iwaki Substation"
+    notes: "Multiple 500kV routes. Total capacity includes both existing and reinforced routes."
+
+  - id: "ic_003"
+    name_ja: "東京中部間連系設備"
+    name_en: "Tokyo-Chubu FC Interconnection"
+    from_region: "tokyo"
+    to_region: "chubu"
+    capacity_mw: 2100
+    voltage_kv: 275
+    type: "FC"
+    description: "Frequency converter stations bridging 50 Hz (Tokyo) and 60 Hz (Chubu)"
+    route:
+      from_substation_ja: "新信濃変換所"
+      from_substation_en: "Shin-Shinano Converter"
+      to_substation_ja: "東清水変換所"
+      to_substation_en: "Higashi-Shimizu Converter"
+    frequency_converters:
+      - name_ja: "新信濃変換所"
+        name_en: "Shin-Shinano Converter"
+        capacity_mw: 600
+        location:
+          latitude: 36.1622
+          longitude: 137.8411
+      - name_ja: "佐久間周波数変換所"
+        name_en: "Sakuma Frequency Converter"
+        capacity_mw: 300
+        location:
+          latitude: 35.0867
+          longitude: 137.8233
+      - name_ja: "東清水変換所"
+        name_en: "Higashi-Shimizu Converter"
+        capacity_mw: 300
+        location:
+          latitude: 35.0153
+          longitude: 138.4956
+    notes: "Crosses the 50/60 Hz boundary. Total 2,100 MW via 3 frequency converter stations (新信濃 600MW + 佐久間 300MW + 東清水 300MW + capacity increase 900MW)."
+
+  - id: "ic_004"
+    name_ja: "中部関西間連系線"
+    name_en: "Chubu-Kansai Interconnection"
+    from_region: "chubu"
+    to_region: "kansai"
+    capacity_mw: 2530
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Chubu and Kansai regions"
+    route:
+      from_substation_ja: "東近江変電所"
+      from_substation_en: "Higashi-Omi Substation"
+      to_substation_ja: "関ヶ原変電所"
+      to_substation_en: "Sekigahara Substation"
+    notes: "500kV AC lines crossing the Chubu-Kansai boundary."
+
+  - id: "ic_005"
+    name_ja: "中部北陸間連系線"
+    name_en: "Chubu-Hokuriku Interconnection"
+    from_region: "chubu"
+    to_region: "hokuriku"
+    capacity_mw: 1900
+    voltage_kv: 275
+    type: "AC"
+    description: "AC interconnection between Chubu and Hokuriku regions"
+    route:
+      from_substation_ja: "加賀変電所"
+      from_substation_en: "Kaga Substation"
+      to_substation_ja: "越前変電所"
+      to_substation_en: "Echizen Substation"
+    notes: "275kV AC lines. Hokuriku region is relatively small and interconnected via Chubu."
+
+  - id: "ic_006"
+    name_ja: "関西中国間連系線"
+    name_en: "Kansai-Chugoku Interconnection"
+    from_region: "kansai"
+    to_region: "chugoku"
+    capacity_mw: 4090
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Kansai and Chugoku regions"
+    route:
+      from_substation_ja: "西播変電所"
+      from_substation_en: "Seiban Substation"
+      to_substation_ja: "山崎変電所"
+      to_substation_en: "Yamasaki Substation"
+    notes: "500kV AC lines through the Chugoku Mountains corridor."
+
+  - id: "ic_007"
+    name_ja: "関西四国間連系線"
+    name_en: "Kansai-Shikoku Interconnection"
+    from_region: "kansai"
+    to_region: "shikoku"
+    capacity_mw: 1400
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Kansai and Shikoku via Awaji Island"
+    route:
+      from_substation_ja: "紀北変電所"
+      from_substation_en: "Kihoku Substation"
+      to_substation_ja: "阿南変電所"
+      to_substation_en: "Anan Substation"
+    notes: "Crosses the Kii Channel via undersea cable and overhead lines through Awaji Island."
+
+  - id: "ic_008"
+    name_ja: "中国四国間連系線"
+    name_en: "Chugoku-Shikoku Interconnection"
+    from_region: "chugoku"
+    to_region: "shikoku"
+    capacity_mw: 1200
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Chugoku and Shikoku via Seto Ohashi Bridge"
+    route:
+      from_substation_ja: "水島変電所"
+      from_substation_en: "Mizushima Substation"
+      to_substation_ja: "讃岐変電所"
+      to_substation_en: "Sanuki Substation"
+    notes: "500kV lines crossing the Seto Inland Sea via the Great Seto Bridge corridor."
+
+  - id: "ic_009"
+    name_ja: "関門連系線"
+    name_en: "Kanmon Interconnection (Chugoku-Kyushu)"
+    from_region: "chugoku"
+    to_region: "kyushu"
+    capacity_mw: 2780
+    voltage_kv: 500
+    type: "AC"
+    description: "AC interconnection between Chugoku and Kyushu via Kanmon Strait"
+    route:
+      from_substation_ja: "新山口変電所"
+      from_substation_en: "Shin-Yamaguchi Substation"
+      to_substation_ja: "北九州変電所"
+      to_substation_en: "Kitakyushu Substation"
+    notes: "Named after the Kanmon Strait (関門海峡) between Honshu and Kyushu. Undersea cable crossing."
+
+# Metadata
+metadata:
+  source: "OCCTO (電力広域的運営推進機関) wide-area system operation data"
+  last_updated: "2024-04"
+  notes: >
+    Capacity values represent the planned operational capability (運用容量).
+    Actual operational capacity may vary due to system conditions.
+    Okinawa is an isolated grid with no interconnection to the mainland.

@@ -1,0 +1,217 @@
+# Japan Power Grid - Voltage Hierarchy by Region
+# Per OCCTO (電力広域的運営推進機関) wide-area grid long-term policy
+#
+# The top 2 voltage levels in each region constitute the
+# "広域連系系統 地内基幹送電線" (wide-area interconnection backbone).
+# These are the backbone lines covered by the OSM power grid data.
+#
+# Classification:
+#   level_1 - Highest voltage in the region (typically 500kV)
+#   level_2 - Second highest voltage (varies by region)
+#   lower   - Lower voltage levels (regional supply / sub-transmission)
+#
+# Grid class mapping:
+#   backbone        - Level 1 and Level 2 (地内基幹送電線)
+#   regional        - Lower levels used for regional supply
+#   sub_transmission - Lowest levels connecting to distribution substations
+#
+# Source: OCCTO 広域系統長期方針 (Wide-area Grid Long-term Policy)
+
+hokkaido:
+  region_ja: "北海道"
+  region_en: "Hokkaido"
+  frequency_hz: 50
+  level_1:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Hokkaido backbone (北海道基幹系統)"
+  level_2:
+    voltage_kv: 187
+    grid_class: "backbone"
+    description: "Hokkaido secondary backbone"
+  lower:
+    - voltage_kv: 66
+      grid_class: "sub_transmission"
+      description: "Sub-transmission to distribution substations"
+  notes: "Hokkaido has no 500kV lines. 275kV is the highest voltage level."
+
+tohoku:
+  region_ja: "東北"
+  region_en: "Tohoku"
+  frequency_hz: 50
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Tohoku ultra-high voltage backbone (東北基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Tohoku secondary backbone"
+  lower:
+    - voltage_kv: 154
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 66
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+
+tokyo:
+  region_ja: "東京"
+  region_en: "Tokyo"
+  frequency_hz: 50
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Tokyo ultra-high voltage backbone (東京基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Tokyo secondary backbone"
+  lower:
+    - voltage_kv: 154
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 66
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+  notes: "Largest load center in Japan. Dense 500/275kV network in Kanto area."
+
+chubu:
+  region_ja: "中部"
+  region_en: "Chubu"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Chubu ultra-high voltage backbone (中部基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Chubu secondary backbone"
+  lower:
+    - voltage_kv: 154
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 77
+      grid_class: "sub_transmission"
+      description: "Sub-transmission (77kV standard in Chubu)"
+  notes: "Operates at 60 Hz despite geographic location in central Japan. Hosts frequency converter stations at the 50/60 Hz boundary."
+
+hokuriku:
+  region_ja: "北陸"
+  region_en: "Hokuriku"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Hokuriku ultra-high voltage backbone (北陸基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Hokuriku secondary backbone"
+  lower:
+    - voltage_kv: 154
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 77
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+
+kansai:
+  region_ja: "関西"
+  region_en: "Kansai"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Kansai ultra-high voltage backbone (関西基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Kansai secondary backbone"
+  lower:
+    - voltage_kv: 154
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 77
+      grid_class: "sub_transmission"
+      description: "Sub-transmission (77kV standard in Kansai)"
+  notes: "Second largest load center. Dense 500/275kV network in Kinki area."
+
+chugoku:
+  region_ja: "中国"
+  region_en: "Chugoku"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Chugoku ultra-high voltage backbone (中国基幹系統)"
+  level_2:
+    voltage_kv: 275
+    grid_class: "backbone"
+    description: "Chugoku secondary backbone"
+  lower:
+    - voltage_kv: 220
+      grid_class: "regional"
+      description: "Regional supply lines (220kV unique to Chugoku)"
+    - voltage_kv: 110
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+  notes: "Uses 220kV and 110kV for lower levels, unlike most other regions."
+
+shikoku:
+  region_ja: "四国"
+  region_en: "Shikoku"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Shikoku ultra-high voltage backbone (四国基幹系統)"
+  level_2:
+    voltage_kv: 187
+    grid_class: "backbone"
+    description: "Shikoku secondary backbone (187kV)"
+  lower:
+    - voltage_kv: 110
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 66
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+  notes: "Uses 187kV as Level 2, same as Hokkaido. Smallest regional grid — good for testing."
+
+kyushu:
+  region_ja: "九州"
+  region_en: "Kyushu"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 500
+    grid_class: "backbone"
+    description: "Kyushu ultra-high voltage backbone (九州基幹系統)"
+  level_2:
+    voltage_kv: 220
+    grid_class: "backbone"
+    description: "Kyushu secondary backbone (220kV)"
+  lower:
+    - voltage_kv: 110
+      grid_class: "regional"
+      description: "Regional supply lines"
+    - voltage_kv: 66
+      grid_class: "sub_transmission"
+      description: "Sub-transmission"
+  notes: "Uses 220kV as Level 2. High solar PV penetration causing grid management challenges."
+
+okinawa:
+  region_ja: "沖縄"
+  region_en: "Okinawa"
+  frequency_hz: 60
+  level_1:
+    voltage_kv: 132
+    grid_class: "backbone"
+    description: "Okinawa backbone (沖縄基幹系統)"
+  level_2:
+    voltage_kv: 66
+    grid_class: "backbone"
+    description: "Okinawa secondary backbone"
+  lower: []
+  notes: "Isolated island grid with no interconnection to mainland Japan. Lowest voltage levels among all regions. Map data marked as WIP."

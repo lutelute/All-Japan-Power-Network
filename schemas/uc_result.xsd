@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML Schema Definition for Unit Commitment (UC) solver result output.
+
+  Namespace: urn:japan-grid:v1
+  Root element: UCResult
+
+  Covers:
+    - Solve status, total cost, solve time, and optimality gap
+    - Per-generator schedules (commitment status and power output per period)
+    - Per-generator cost breakdowns (fuel, startup, shutdown, no-load)
+    - System-wide cost breakdown totals
+    - Diagnostics (warnings and infeasibility information)
+
+  Aligned with the UCResult and GeneratorSchedule dataclasses
+  defined in src/uc/models.py.
+
+  Author: japan-grid-pipeline
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:jg="urn:japan-grid:v1"
+           targetNamespace="urn:japan-grid:v1"
+           elementFormDefault="qualified">
+
+  <!-- ================================================================== -->
+  <!-- Simple Types                                                        -->
+  <!-- ================================================================== -->
+
+  <!-- UC solver status enumeration -->
+  <xs:simpleType name="UCStatusEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Optimal"/>       <!-- Proven optimal solution found -->
+      <xs:enumeration value="Feasible"/>      <!-- Feasible but not proven optimal -->
+      <xs:enumeration value="Infeasible"/>    <!-- No feasible solution exists -->
+      <xs:enumeration value="Unbounded"/>     <!-- Problem is unbounded -->
+      <xs:enumeration value="TimeLimit"/>     <!-- Solver hit time limit -->
+      <xs:enumeration value="Not Solved"/>    <!-- Solver not yet run -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Binary commitment status per period -->
+  <xs:simpleType name="CommitmentEnum">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="0"/>  <!-- Off -->
+      <xs:enumeration value="1"/>  <!-- On -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Non-negative decimal (reused for costs, power, time) -->
+  <xs:simpleType name="NonNegativeDecimalType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ================================================================== -->
+  <!-- Complex Types                                                       -->
+  <!-- ================================================================== -->
+
+  <!-- Single period in a generator schedule -->
+  <xs:complexType name="PeriodType">
+    <xs:attribute name="t" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="commitment" type="jg:CommitmentEnum" use="required"/>
+    <xs:attribute name="power_output_mw" type="jg:NonNegativeDecimalType" use="required"/>
+  </xs:complexType>
+
+  <!-- Per-generator cost breakdown over the planning horizon -->
+  <xs:complexType name="GeneratorCostType">
+    <xs:attribute name="fuel_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="startup_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="shutdown_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="no_load_cost" type="xs:decimal" use="optional" default="0"/>
+  </xs:complexType>
+
+  <!-- Schedule for a single generator across the planning horizon -->
+  <xs:complexType name="GeneratorScheduleType">
+    <xs:sequence>
+      <xs:element name="Period" type="jg:PeriodType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Cost" type="jg:GeneratorCostType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="generator_id" type="xs:string" use="required"/>
+    <xs:attribute name="total_cost" type="xs:decimal" use="optional"/>
+    <xs:attribute name="num_startups" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="capacity_factor" type="xs:decimal" use="optional"/>
+  </xs:complexType>
+
+  <!-- Collection of generator schedules -->
+  <xs:complexType name="GeneratorSchedulesType">
+    <xs:sequence>
+      <xs:element name="GeneratorSchedule" type="jg:GeneratorScheduleType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- System-wide cost breakdown totals -->
+  <xs:complexType name="CostBreakdownType">
+    <xs:attribute name="fuel_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="startup_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="shutdown_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="no_load_cost" type="xs:decimal" use="optional" default="0"/>
+    <xs:attribute name="labor_cost" type="xs:decimal" use="optional" default="0"/>
+  </xs:complexType>
+
+  <!-- Single warning or diagnostic message -->
+  <xs:complexType name="WarningType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="severity" type="xs:string" use="optional" default="warning"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- Infeasibility information for a specific timestep -->
+  <xs:complexType name="InfeasibilityType">
+    <xs:attribute name="period" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="shortfall_mw" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="description" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Diagnostics: warnings and infeasibility details -->
+  <xs:complexType name="DiagnosticsType">
+    <xs:sequence>
+      <xs:element name="Warning" type="jg:WarningType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Infeasibility" type="jg:InfeasibilityType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ================================================================== -->
+  <!-- Root Element: UCResult                                              -->
+  <!-- ================================================================== -->
+
+  <xs:complexType name="UCResultType">
+    <xs:sequence>
+      <xs:element name="GeneratorSchedules" type="jg:GeneratorSchedulesType"/>
+      <xs:element name="CostBreakdown" type="jg:CostBreakdownType" minOccurs="0"/>
+      <xs:element name="Diagnostics" type="jg:DiagnosticsType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="status" type="jg:UCStatusEnum" use="required"/>
+    <xs:attribute name="total_cost" type="xs:decimal" use="required"/>
+    <xs:attribute name="solve_time_s" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="optimality_gap" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="num_generators" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="num_periods" type="xs:nonNegativeInteger" use="optional"/>
+  </xs:complexType>
+
+  <xs:element name="UCResult" type="jg:UCResultType"/>
+
+</xs:schema>

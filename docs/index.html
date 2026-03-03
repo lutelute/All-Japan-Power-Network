@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japan Power Grid - JPGrid-Open</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="./css/style.css"/>
+</head>
+<body>
+
+<div id="sidebar">
+    <h1><span class="icon">&#9889;</span> Japan Power Grid</h1>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tab-map">系統図</button>
+        <button class="tab-btn" data-tab="tab-pf">潮流解析</button>
+    </div>
+
+    <!-- ━━ Tab 1: 系統図 ━━ -->
+    <div class="tab-panel active" id="tab-map">
+        <div class="section">
+            <h2>Voltage Filter</h2>
+            <div class="filter-row">
+                <label for="min-kv">Min:</label>
+                <select id="min-kv">
+                    <option value="0">All voltages</option>
+                    <option value="66">66 kV+</option>
+                    <option value="110">110 kV+</option>
+                    <option value="154">154 kV+</option>
+                    <option value="275" selected>275 kV+</option>
+                    <option value="500">500 kV only</option>
+                </select>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Regions</h2>
+            <div class="region-list" id="region-list"></div>
+        </div>
+    </div>
+
+    <!-- ━━ Tab 2: 潮流解析 ━━ -->
+    <div class="tab-panel" id="tab-pf">
+        <div class="section">
+            <div class="pf-info">
+                Power flow analysis requires a local FastAPI server.<br>
+                <code style="font-size:0.75rem;color:#e94560;">uvicorn src.server.app:app --reload</code>
+            </div>
+            <h2>Region</h2>
+            <div class="pf-controls">
+                <select id="pf-region" disabled></select>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Power Flow</h2>
+            <div class="pf-controls">
+                <div>
+                    <label for="pf-mode">Mode</label>
+                    <select id="pf-mode" disabled>
+                        <option value="dc" selected>DC Power Flow</option>
+                        <option value="ac">AC Power Flow</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="pf-load-factor">Load Factor (0-1)</label>
+                    <input type="number" id="pf-load-factor" placeholder="0.85" min="0" max="1" step="0.05" disabled/>
+                </div>
+                <button class="btn-primary" id="btn-run-pf" disabled>Run Power Flow</button>
+                <button class="btn-secondary" id="btn-export-mat" disabled>Export MATPOWER (.mat)</button>
+            </div>
+        </div>
+        <div class="section" id="pf-results-section" style="display:none">
+            <h2>Results</h2>
+            <div id="pf-results-content"></div>
+        </div>
+    </div>
+
+    <div id="status-bar"><span id="status-text">Ready</span></div>
+</div>
+
+<div id="map"></div>
+
+<script src="./js/grid_map.js"></script>
+<script src="./js/powerflow.js"></script>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML Schema Definition for the ALL-JAPAN Power Grid standardized dataset.
+
+  Namespace: urn:japan-grid:v1
+  Root element: PowerGrid
+
+  Covers:
+    - Metadata (dataset identification, source attribution)
+    - Regions (10 regional power grids with frequency zones)
+    - Substations (bus nodes with geographic coordinates and voltage)
+    - Transmission Lines (branches with electrical parameters and capacity status)
+    - Generators (power plants with fuel type, capacity, and bus connection)
+    - Interconnections (cross-regional links including HVDC and frequency converters)
+
+  Data sources:
+    - OpenStreetMap power infrastructure data (10 regions)
+    - 国土数値情報 P03 power generation facility data
+    - OCCTO wide-area system operation data
+
+  Author: japan-grid-pipeline
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:jg="urn:japan-grid:v1"
+           targetNamespace="urn:japan-grid:v1"
+           elementFormDefault="qualified">
+
+  <!-- ================================================================== -->
+  <!-- Simple Types                                                        -->
+  <!-- ================================================================== -->
+
+  <!-- Bus type per MATPOWER convention: 1=PQ (load), 2=PV (generator), 3=Slack -->
+  <xs:simpleType name="BusTypeEnum">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="1"/>  <!-- PQ: Load bus -->
+      <xs:enumeration value="2"/>  <!-- PV: Generator bus -->
+      <xs:enumeration value="3"/>  <!-- Slack: Reference bus -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Capacity status derived from KML line color -->
+  <xs:simpleType name="CapacityStatusEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="zero_capacity_n1_ineligible"/>  <!-- Red -->
+      <xs:enumeration value="zero_capacity_n1_eligible"/>    <!-- Orange -->
+      <xs:enumeration value="available"/>                     <!-- Blue -->
+      <xs:enumeration value="unknown"/>                       <!-- Unmapped -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Fuel type classification for generators -->
+  <xs:simpleType name="FuelTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="coal"/>
+      <xs:enumeration value="lng"/>
+      <xs:enumeration value="oil"/>
+      <xs:enumeration value="nuclear"/>
+      <xs:enumeration value="hydro"/>
+      <xs:enumeration value="pumped_hydro"/>
+      <xs:enumeration value="geothermal"/>
+      <xs:enumeration value="wind"/>
+      <xs:enumeration value="solar"/>
+      <xs:enumeration value="biomass"/>
+      <xs:enumeration value="mixed"/>
+      <xs:enumeration value="unknown"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Generator operational status -->
+  <xs:simpleType name="GeneratorStatusEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="active"/>
+      <xs:enumeration value="decommissioned"/>
+      <xs:enumeration value="planned"/>
+      <xs:enumeration value="suspended"/>
+      <xs:enumeration value="unknown"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Grid hierarchy classification -->
+  <xs:simpleType name="GridClassEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="backbone"/>     <!-- Level 1/2 backbone grid -->
+      <xs:enumeration value="regional"/>     <!-- Regional supply grid -->
+      <xs:enumeration value="distribution"/> <!-- Distribution level -->
+      <xs:enumeration value=""/>             <!-- Unclassified -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Interconnection type -->
+  <xs:simpleType name="InterconnectionTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="AC"/>    <!-- Standard AC transmission -->
+      <xs:enumeration value="HVDC"/>  <!-- High Voltage DC (undersea) -->
+      <xs:enumeration value="FC"/>    <!-- Frequency Converter (50/60 Hz boundary) -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Frequency in Hz (50 or 60 for regional, 0 for mixed/national) -->
+  <xs:simpleType name="FrequencyType">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="0"/>   <!-- Mixed (national model) -->
+      <xs:enumeration value="50"/>  <!-- East Japan -->
+      <xs:enumeration value="60"/>  <!-- West Japan -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- WGS-84 latitude: -90 to 90 degrees -->
+  <xs:simpleType name="LatitudeType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="-90"/>
+      <xs:maxInclusive value="90"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- WGS-84 longitude: -180 to 180 degrees -->
+  <xs:simpleType name="LongitudeType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="-180"/>
+      <xs:maxInclusive value="180"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Non-negative decimal for voltage, length, capacity, etc. -->
+  <xs:simpleType name="NonNegativeDecimalType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ================================================================== -->
+  <!-- Complex Types                                                       -->
+  <!-- ================================================================== -->
+
+  <!-- Metadata: dataset identification and source attribution -->
+  <xs:complexType name="MetadataType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="Source" type="xs:string"/>
+      <xs:element name="Attribution" type="xs:string" minOccurs="0"/>
+      <xs:element name="RegionCount" type="xs:nonNegativeInteger"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Electrical parameters for a transmission line (per km) -->
+  <xs:complexType name="ElectricalParametersType">
+    <xs:sequence>
+      <xs:element name="R_ohm_per_km" type="jg:NonNegativeDecimalType"/>
+      <xs:element name="X_ohm_per_km" type="jg:NonNegativeDecimalType"/>
+      <xs:element name="B_S_per_km" type="jg:NonNegativeDecimalType"/>
+      <xs:element name="MaxCurrent_kA" type="jg:NonNegativeDecimalType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Geographic point with lat/lon -->
+  <xs:complexType name="PointType">
+    <xs:attribute name="lat" type="jg:LatitudeType" use="required"/>
+    <xs:attribute name="lon" type="jg:LongitudeType" use="required"/>
+  </xs:complexType>
+
+  <!-- Ordered list of coordinate waypoints for a transmission line -->
+  <xs:complexType name="CoordinatesType">
+    <xs:sequence>
+      <xs:element name="Point" type="jg:PointType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Generator location -->
+  <xs:complexType name="LocationType">
+    <xs:attribute name="latitude" type="jg:LatitudeType" use="required"/>
+    <xs:attribute name="longitude" type="jg:LongitudeType" use="required"/>
+  </xs:complexType>
+
+  <!-- Substation (bus node) -->
+  <xs:complexType name="SubstationType">
+    <xs:sequence>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="latitude" type="jg:LatitudeType" use="required"/>
+    <xs:attribute name="longitude" type="jg:LongitudeType" use="required"/>
+    <xs:attribute name="voltage_kv" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="bus_type" type="jg:BusTypeEnum" use="optional" default="1"/>
+    <xs:attribute name="grid_class" type="jg:GridClassEnum" use="optional"/>
+  </xs:complexType>
+
+  <!-- Collection of substations within a region -->
+  <xs:complexType name="SubstationsType">
+    <xs:sequence>
+      <xs:element name="Substation" type="jg:SubstationType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Transmission line (branch) -->
+  <xs:complexType name="TransmissionLineType">
+    <xs:sequence>
+      <xs:element name="ElectricalParameters" type="jg:ElectricalParametersType"
+                  minOccurs="0"/>
+      <xs:element name="Coordinates" type="jg:CoordinatesType"
+                  minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="from_substation" type="xs:string" use="required"/>
+    <xs:attribute name="to_substation" type="xs:string" use="required"/>
+    <xs:attribute name="voltage_kv" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="capacity_status" type="jg:CapacityStatusEnum"
+                  use="optional" default="unknown"/>
+    <xs:attribute name="length_km" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="grid_class" type="jg:GridClassEnum" use="optional"/>
+    <xs:attribute name="n1_eligible" type="xs:boolean" use="optional" default="false"/>
+  </xs:complexType>
+
+  <!-- Collection of transmission lines within a region -->
+  <xs:complexType name="TransmissionLinesType">
+    <xs:sequence>
+      <xs:element name="TransmissionLine" type="jg:TransmissionLineType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ================================================================== -->
+  <!-- UC (Unit Commitment) Complex Types                                  -->
+  <!-- ================================================================== -->
+
+  <!-- Ramp rate limits for generator output changes between timesteps -->
+  <xs:complexType name="RampRatesType">
+    <xs:attribute name="ramp_up_mw_per_h" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="ramp_down_mw_per_h" type="jg:NonNegativeDecimalType" use="optional"/>
+  </xs:complexType>
+
+  <!-- Single maintenance window with start/end dates -->
+  <xs:complexType name="MaintenanceWindowType">
+    <xs:attribute name="start" type="xs:dateTime" use="required"/>
+    <xs:attribute name="end" type="xs:dateTime" use="required"/>
+    <xs:attribute name="description" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Maintenance plan: collection of scheduled maintenance windows -->
+  <xs:complexType name="MaintenancePlanType">
+    <xs:sequence>
+      <xs:element name="Window" type="jg:MaintenanceWindowType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Rebuild plan for generator refurbishment or replacement -->
+  <xs:complexType name="RebuildPlanType">
+    <xs:attribute name="planned_date" type="xs:date" use="optional"/>
+    <xs:attribute name="duration_days" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="description" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Disaster risk assessment for the generator site -->
+  <xs:complexType name="DisasterRiskType">
+    <xs:attribute name="risk_score" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="risk_type" type="xs:string" use="optional"/>
+    <xs:attribute name="description" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Piecewise-linear cost segment for detailed cost modeling -->
+  <xs:complexType name="CostPieceType">
+    <xs:attribute name="from_mw" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="to_mw" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="cost_per_mwh" type="xs:decimal" use="required"/>
+  </xs:complexType>
+
+  <!-- Piecewise-linear cost structure for detailed generator cost modeling -->
+  <xs:complexType name="CostStructureType">
+    <xs:sequence>
+      <xs:element name="Piece" type="jg:CostPieceType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="currency" type="xs:string" use="optional" default="JPY"/>
+  </xs:complexType>
+
+  <!-- Generator (power plant) -->
+  <xs:complexType name="GeneratorType">
+    <xs:sequence>
+      <xs:element name="Location" type="jg:LocationType" minOccurs="0"/>
+      <xs:element name="RampRates" type="jg:RampRatesType" minOccurs="0"/>
+      <xs:element name="MaintenancePlan" type="jg:MaintenancePlanType" minOccurs="0"/>
+      <xs:element name="RebuildPlan" type="jg:RebuildPlanType" minOccurs="0"/>
+      <xs:element name="DisasterRisk" type="jg:DisasterRiskType" minOccurs="0"/>
+      <xs:element name="CostStructure" type="jg:CostStructureType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="connected_substation" type="xs:string" use="optional"/>
+    <xs:attribute name="capacity_mw" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="fuel_type" type="jg:FuelTypeEnum" use="required"/>
+    <xs:attribute name="status" type="jg:GeneratorStatusEnum"
+                  use="optional" default="active"/>
+    <!-- UC (Unit Commitment) optional attributes -->
+    <xs:attribute name="startup_cost" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="shutdown_cost" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="min_up_time_h" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="min_down_time_h" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="fuel_cost_per_mwh" type="xs:decimal" use="optional"/>
+    <xs:attribute name="labor_cost_per_h" type="xs:decimal" use="optional"/>
+    <xs:attribute name="no_load_cost" type="jg:NonNegativeDecimalType" use="optional"/>
+  </xs:complexType>
+
+  <!-- Collection of generators within a region -->
+  <xs:complexType name="GeneratorsType">
+    <xs:sequence>
+      <xs:element name="Generator" type="jg:GeneratorType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Region (one of the 10 regional power grids) -->
+  <xs:complexType name="RegionType">
+    <xs:sequence>
+      <xs:element name="Substations" type="jg:SubstationsType"/>
+      <xs:element name="TransmissionLines" type="jg:TransmissionLinesType"/>
+      <xs:element name="Generators" type="jg:GeneratorsType"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="frequency_hz" type="jg:FrequencyType" use="required"/>
+  </xs:complexType>
+
+  <!-- Collection of regions -->
+  <xs:complexType name="RegionsType">
+    <xs:sequence>
+      <xs:element name="Region" type="jg:RegionType"
+                  minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Inter-regional interconnection link -->
+  <xs:complexType name="InterconnectionType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="from_region" type="xs:string" use="required"/>
+    <xs:attribute name="to_region" type="xs:string" use="required"/>
+    <xs:attribute name="from_substation" type="xs:string" use="optional"/>
+    <xs:attribute name="to_substation" type="xs:string" use="optional"/>
+    <xs:attribute name="capacity_mw" type="jg:NonNegativeDecimalType" use="required"/>
+    <xs:attribute name="voltage_kv" type="jg:NonNegativeDecimalType" use="optional"/>
+    <xs:attribute name="type" type="jg:InterconnectionTypeEnum" use="required"/>
+  </xs:complexType>
+
+  <!-- Collection of interconnections -->
+  <xs:complexType name="InterconnectionsType">
+    <xs:sequence>
+      <xs:element name="Interconnection" type="jg:InterconnectionType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ================================================================== -->
+  <!-- Root Element: PowerGrid                                             -->
+  <!-- ================================================================== -->
+
+  <xs:complexType name="PowerGridType">
+    <xs:sequence>
+      <xs:element name="Metadata" type="jg:MetadataType"/>
+      <xs:element name="Regions" type="jg:RegionsType"/>
+      <xs:element name="Interconnections" type="jg:InterconnectionsType"
+                  minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="required"/>
+    <xs:attribute name="created" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="PowerGrid" type="jg:PowerGridType"/>
+
+</xs:schema>

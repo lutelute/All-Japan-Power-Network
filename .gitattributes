@@ -1,0 +1,4 @@
+# Mark generated/large data files so they don't skew GitHub language stats
+data/*.geojson linguist-generated
+docs/data/*.geojson linguist-generated
+docs/data/*.json linguist-generated
