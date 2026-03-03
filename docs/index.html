@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Japan Power Grid - JPGrid-Open</title>
+    <title>All-Japan-Grid</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="./css/style.css"/>
@@ -33,6 +33,12 @@
                     <option value="275" selected>275 kV+</option>
                     <option value="500">500 kV only</option>
                 </select>
+            </div>
+            <div class="filter-row" style="margin-top:6px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="checkbox" id="show-plants" checked style="accent-color:#e94560"/>
+                    Show Power Plants
+                </label>
             </div>
         </div>
         <div class="section">

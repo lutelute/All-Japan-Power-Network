@@ -59,13 +59,24 @@ function voltageTier(minKv) {
     return                    { suffix: "all",   clientFilter: 0 };
 }
 
+// Fuel type colors for power plants
+const FUEL_COLORS = {
+    nuclear: "#ff0000", coal: "#444444", gas: "#ff8800",
+    oil: "#884400", hydro: "#0088ff", pumped_hydro: "#0044aa",
+    wind: "#00cc88", solar: "#ffdd00", geothermal: "#cc4488",
+    biomass: "#668833", waste: "#996633", tidal: "#006688",
+    battery: "#aa00ff", unknown: "#999999",
+};
+
 // ── Map state ──
 
 let map;
 let substationLayer = null;
 let lineLayer = null;
+let plantLayer = null;
 let currentRegion = null;
 let regionsData = [];  // cached regions.json response
+let plantsVisible = true;
 
 function initMap() {
     map = L.map("map", {
@@ -94,6 +105,19 @@ function addVoltageLegend() {
                 '<div class="legend-item">' +
                 '<span class="legend-color" style="background:' + color + '"></span>' +
                 kv + ' kV</div>';
+        }
+        div.innerHTML += "<h4 style='margin-top:8px'>Power Plants</h4>";
+        var fuelEntries = [
+            ["nuclear","Nuclear"],["coal","Coal"],["gas","Gas"],["oil","Oil"],
+            ["hydro","Hydro"],["wind","Wind"],["solar","Solar"],
+            ["geothermal","Geothermal"],["biomass","Biomass"]
+        ];
+        for (var i = 0; i < fuelEntries.length; i++) {
+            var key = fuelEntries[i][0], label = fuelEntries[i][1];
+            div.innerHTML +=
+                '<div class="legend-item">' +
+                '<span class="legend-color" style="background:' + FUEL_COLORS[key] + ';border-radius:50%"></span>' +
+                label + '</div>';
         }
         return div;
     };
@@ -203,11 +227,15 @@ async function loadAllRegions(minKv) {
             },
         }).addTo(map);
 
+        // Load power plants
+        await loadPlants();
+
         map.setView([36.5, 137.0], 6);
         var subCount = subData.features ? subData.features.length : 0;
         var lineCount = lineData.features ? lineData.features.length : 0;
+        var plantCount = plantLayer ? plantLayer.getLayers().length : 0;
         var kvLabel = minKv > 0 ? " (" + minKv + " kV+)" : "";
-        setStatus("All regions" + kvLabel + ": " + subCount + " substations, " + lineCount + " lines");
+        setStatus("All regions" + kvLabel + ": " + subCount + " substations, " + lineCount + " lines, " + plantCount + " plants");
     } catch (err) {
         setStatus("Error: " + err.message);
     }
@@ -227,9 +255,48 @@ function loadRegion(region) {
     setStatus(r.name_en + " (" + r.name_ja + "): zoom to region");
 }
 
+async function loadPlants() {
+    if (plantLayer) { map.removeLayer(plantLayer); plantLayer = null; }
+    if (!plantsVisible) return;
+    try {
+        var res = await fetch("./data/plants_all.geojson");
+        if (!res.ok) return;
+        var plantData = await res.json();
+        plantLayer = L.geoJSON(plantData, {
+            pointToLayer: function (feature, latlng) {
+                var p = feature.properties;
+                var fuel = p.fuel_type || "unknown";
+                var color = FUEL_COLORS[fuel] || FUEL_COLORS.unknown;
+                var mw = p.capacity_mw || 0;
+                var radius = mw >= 1000 ? 7 : mw >= 100 ? 5 : mw > 0 ? 4 : 3;
+                return L.circleMarker(latlng, {
+                    radius: radius,
+                    fillColor: color,
+                    color: "#000",
+                    weight: 1,
+                    fillOpacity: 0.85,
+                });
+            },
+            onEachFeature: function (feature, layer) {
+                var p = feature.properties;
+                var cap = p.capacity_mw ? p.capacity_mw + " MW" : "N/A";
+                layer.bindPopup(
+                    "<b>" + (p._display_name || "Unnamed") + "</b><br>" +
+                    "Fuel: " + (p.fuel_type || "unknown") + "<br>" +
+                    "Capacity: " + cap + "<br>" +
+                    "Region: " + (p._region_ja || "")
+                );
+            },
+        }).addTo(map);
+    } catch (err) {
+        console.error("Failed to load plants:", err);
+    }
+}
+
 function clearLayers() {
     if (substationLayer) { map.removeLayer(substationLayer); substationLayer = null; }
     if (lineLayer) { map.removeLayer(lineLayer); lineLayer = null; }
+    if (plantLayer) { map.removeLayer(plantLayer); plantLayer = null; }
 }
 
 // ── Region list ──
@@ -303,6 +370,20 @@ document.addEventListener("DOMContentLoaded", function () {
     if (minKvSelect) {
         minKvSelect.addEventListener("change", function () {
             loadAllRegions(parseFloat(this.value));
+        });
+    }
+
+    // Bind plants toggle
+    var showPlantsCheckbox = document.getElementById("show-plants");
+    if (showPlantsCheckbox) {
+        showPlantsCheckbox.addEventListener("change", function () {
+            plantsVisible = this.checked;
+            if (plantsVisible) {
+                loadPlants();
+            } else if (plantLayer) {
+                map.removeLayer(plantLayer);
+                plantLayer = null;
+            }
         });
     }
 

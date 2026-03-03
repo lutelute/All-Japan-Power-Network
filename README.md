@@ -1,7 +1,7 @@
 # All-Japan-Grid
 
 Open Japanese power grid **geographic topology** dataset built from OpenStreetMap.
-10 regions, 40,000+ transmission lines, 7,000+ substations.
+10 regions, 40,000+ transmission lines, 7,000+ substations, 19,000+ power plants.
 
 **Live Map:** https://lutelute.github.io/All-Japan-Grid/
 
@@ -9,18 +9,18 @@ Open Japanese power grid **geographic topology** dataset built from OpenStreetMa
 
 ## Dataset
 
-| Region | Substations | Lines | Frequency |
-|--------|------------|-------|-----------|
-| Hokkaido | 303 | 1,879 | 50 Hz |
-| Tohoku | 738 | 5,112 | 50 Hz |
-| Tokyo | 1,367 | 8,052 | 50 Hz |
-| Chubu | 898 | 5,284 | 60 Hz |
-| Hokuriku | 273 | 1,604 | 60 Hz |
-| Kansai | 1,016 | 5,960 | 60 Hz |
-| Chugoku | 548 | 3,214 | 60 Hz |
-| Shikoku | 258 | 1,532 | 60 Hz |
-| Kyushu | 1,145 | 6,553 | 60 Hz |
-| Okinawa | 416 | 887 | 60 Hz |
+| Region | Substations | Lines | Plants | Frequency |
+|--------|------------|-------|--------|-----------|
+| Hokkaido | 303 | 1,879 | 436 | 50 Hz |
+| Tohoku | 738 | 5,112 | 1,311 | 50 Hz |
+| Tokyo | 1,367 | 8,052 | 7,207 | 50 Hz |
+| Chubu | 898 | 5,284 | 3,792 | 60 Hz |
+| Hokuriku | 273 | 1,604 | 432 | 60 Hz |
+| Kansai | 1,016 | 5,960 | 1,518 | 60 Hz |
+| Chugoku | 548 | 3,214 | 1,173 | 60 Hz |
+| Shikoku | 258 | 1,532 | 688 | 60 Hz |
+| Kyushu | 1,145 | 6,553 | 2,549 | 60 Hz |
+| Okinawa | 416 | 887 | 32 | 60 Hz |
 
 ### File Format
 
@@ -28,19 +28,27 @@ GeoJSON FeatureCollection per region:
 ```
 data/{region}_substations.geojson   # Point/Polygon features
 data/{region}_lines.geojson         # LineString features
+data/{region}_plants.geojson        # Point features (power plants)
 ```
 
-Key properties:
+Key properties (substations & lines):
 - `voltage` — OSM voltage in volts (e.g. `"275000"`)
 - `name` / `name:ja` — Facility name
 - `operator` — Operating utility
 - `cables`, `circuits` — Line specifications
 
+Key properties (plants):
+- `fuel_type` — Normalized: solar, hydro, coal, gas, nuclear, wind, etc.
+- `capacity_mw` — Output capacity in MW (when available)
+- `plant:source` — Raw OSM source tag
+- `name` / `name:ja` — Plant name
+
 ### Data Source
 
-All network data is extracted from [OpenStreetMap](https://www.openstreetmap.org/) using the Overpass API:
-- `power=substation`
-- `power=line` / `power=cable`
+All data is extracted from [OpenStreetMap](https://www.openstreetmap.org/) using the Overpass API:
+- `power=substation` — Substations, switching stations
+- `power=line` / `power=cable` — Transmission lines
+- `power=plant` — Power plants (solar, hydro, thermal, nuclear, wind, etc.)
 
 License: [ODbL](https://opendatacommons.org/licenses/odbl/) (OpenStreetMap)
 
@@ -64,7 +72,7 @@ OSM provides the **geographic** skeleton of the transmission grid. To build a fu
 |---------|---------------|-----------------|
 | **Line impedance (R, X, B)** | Required for any power flow calculation | Typical values by voltage class (synthetic), or OCCTO published parameters |
 | **From/to bus connectivity** | OSM lines are geographic traces, not bus-bus connections; endpoint matching is heuristic and error-prone | Manual verification, OCCTO topology data |
-| **Generators** | No generation capacity, fuel type, cost curves | OCCTO supply plan, 国土数値情報 P03, JEPX data |
+| **Generator details** | OSM power=plant provides locations and fuel types, but lacks cost curves, min/max output, ramp rates | OCCTO supply plan, 国土数値情報 P03, JEPX data |
 | **Load / demand** | No demand allocation at buses | OCCTO area demand, prefecture-level statistics, synthetic allocation |
 | **Transformer data** | No tap ratios, impedance, winding configuration | Synthetic estimation or utility disclosure |
 | **Switching topology** | Bus-section / breaker-level detail unavailable | Not publicly available in Japan |

@@ -77,6 +77,13 @@ def main():
             kv_label = f">= {min_kv} kV" if min_kv > 0 else "all"
             print(f"  {filename:<25s} ({fmt_size(size):>8s}, {count:>5d} features, {kv_label})")
 
+    # Generate plants GeoJSON (all plants, no voltage filtering)
+    plants_data = get_all_geojson_light("plants", min_voltage_kv=0)
+    count = len(plants_data.get("features", []))
+    path = os.path.join(DOCS_DATA_DIR, "plants_all.geojson")
+    size = write_json(path, plants_data)
+    print(f"  {'plants_all.geojson':<25s} ({fmt_size(size):>8s}, {count:>5d} features)")
+
     print("Done.")
 
 
