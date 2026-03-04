@@ -22,7 +22,29 @@
     <!-- ━━ Tab 1: 系統図 ━━ -->
     <div class="tab-panel active" id="tab-map">
         <div class="section">
-            <h2>Voltage Filter</h2>
+            <h2>Layers</h2>
+            <div class="layer-toggles">
+                <label class="layer-toggle">
+                    <input type="checkbox" id="layer-lines" checked/>
+                    <span class="toggle-label">送電線 Lines</span>
+                </label>
+                <label class="layer-toggle">
+                    <input type="checkbox" id="layer-subs" checked/>
+                    <span class="toggle-label">変電所 Substations</span>
+                </label>
+                <label class="layer-toggle">
+                    <input type="checkbox" id="layer-plants" checked/>
+                    <span class="toggle-label">発電所 Plants</span>
+                    <select id="plant-filter" class="inline-select">
+                        <option value="utility" selected>Utility</option>
+                        <option value="ipp">+ IPP</option>
+                        <option value="all">All</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Voltage</h2>
             <div class="filter-row">
                 <label for="min-kv">Min:</label>
                 <select id="min-kv">
@@ -32,15 +54,6 @@
                     <option value="154">154 kV+</option>
                     <option value="275" selected>275 kV+</option>
                     <option value="500">500 kV only</option>
-                </select>
-            </div>
-            <div class="filter-row" style="margin-top:6px">
-                <label for="plant-filter">Plants:</label>
-                <select id="plant-filter">
-                    <option value="utility" selected>Utility (EPCOs)</option>
-                    <option value="ipp">+ Major IPP</option>
-                    <option value="all">All (incl. small solar)</option>
-                    <option value="none">Hide</option>
                 </select>
             </div>
         </div>
