@@ -6,12 +6,17 @@ and constructs a display name like "{area}変電所".
 
 Also picks up name:en as fallback if name/name:ja are missing.
 
+Supports --promote-names to promote _display_name to name for substations
+that have been geocoded but not yet officially named.
+
 Usage:
     python scripts/enrich_substations_geocode.py                  # all regions
     python scripts/enrich_substations_geocode.py --region okinawa # single region
+    python scripts/enrich_substations_geocode.py --promote-names  # promote display names
 """
 
 import argparse
+from collections import Counter
 import json
 import os
 import sys
@@ -136,25 +141,108 @@ def enrich_region(region):
     return total, enriched, unnamed
 
 
+def promote_names_region(region):
+    """Promote _display_name to name for unnamed substations. Returns (total, promoted)."""
+    path = os.path.join(DATA_DIR, f"{region}_substations.geojson")
+    if not os.path.exists(path):
+        return 0, 0
+
+    with open(path, "r", encoding="utf-8") as f:
+        fc = json.load(f)
+
+    features = fc.get("features", [])
+    total = len(features)
+
+    # Collect all names that will be used (existing + promoted) to detect duplicates
+    # First pass: gather existing names and candidate display names
+    existing_names = Counter()
+    candidates = []
+    for feat in features:
+        props = feat["properties"]
+        name = (props.get("name") or props.get("name:ja") or "").strip()
+        if name:
+            existing_names[name] += 1
+        else:
+            display = (props.get("_display_name") or "").strip()
+            if display:
+                candidates.append(feat)
+
+    # Count how many times each candidate display_name will be used
+    candidate_names = Counter(
+        (f["properties"].get("_display_name") or "").strip()
+        for f in candidates
+    )
+
+    # Merge with existing names to get full picture of duplicates
+    all_names = Counter()
+    all_names.update(existing_names)
+    all_names.update(candidate_names)
+
+    # Second pass: assign names with dedup suffixes
+    name_usage = Counter(existing_names)  # track how many times each name has been assigned
+    promoted = 0
+    for feat in candidates:
+        props = feat["properties"]
+        display = (props.get("_display_name") or "").strip()
+        if not display:
+            continue
+
+        # Determine if this name needs a suffix
+        if all_names[display] > 1:
+            name_usage[display] += 1
+            count = name_usage[display]
+            if count == 1:
+                final_name = display
+            else:
+                final_name = f"{display}_{count}"
+        else:
+            final_name = display
+
+        props["name"] = final_name
+        props["_enriched_by"] = "geocode_promotion"
+        promoted += 1
+
+    # Write back
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(fc, f, ensure_ascii=False, separators=(",", ":"))
+
+    return total, promoted
+
+
 def main():
     parser = argparse.ArgumentParser(description="Enrich substations with geocoded names")
     parser.add_argument("--region", type=str, default=None,
                         help="Single region to process (default: all)")
+    parser.add_argument("--promote-names", action="store_true",
+                        help="Promote _display_name to name for unnamed substations")
     args = parser.parse_args()
 
     regions = [args.region] if args.region else REGIONS
 
-    total_enriched = 0
-    for region in regions:
-        if region not in REGIONS:
-            print(f"  Unknown region: {region}")
-            continue
-        print(f"  Processing {region}...")
-        total, enriched, still_unnamed = enrich_region(region)
-        total_enriched += enriched
-        print(f"    {total} total, {enriched} enriched, {still_unnamed} still unnamed")
+    if args.promote_names:
+        total_promoted = 0
+        for region in regions:
+            if region not in REGIONS:
+                print(f"  Unknown region: {region}")
+                continue
+            print(f"  Processing {region}...")
+            total, promoted = promote_names_region(region)
+            total_promoted += promoted
+            print(f"    {total} total, {promoted} promoted")
 
-    print(f"\n  TOTAL enriched: {total_enriched}")
+        print(f"\n  TOTAL promoted: {total_promoted}")
+    else:
+        total_enriched = 0
+        for region in regions:
+            if region not in REGIONS:
+                print(f"  Unknown region: {region}")
+                continue
+            print(f"  Processing {region}...")
+            total, enriched, still_unnamed = enrich_region(region)
+            total_enriched += enriched
+            print(f"    {total} total, {enriched} enriched, {still_unnamed} still unnamed")
+
+        print(f"\n  TOTAL enriched: {total_enriched}")
 
 
 if __name__ == "__main__":
