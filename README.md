@@ -156,7 +156,7 @@ open http://localhost:8000
 | `src/server/` | FastAPI web server, interactive map / FastAPI ウェブサーバー、インタラクティブマップ | Works / 動作可 |
 | `src/powerflow/` | DC/AC power flow via pandapower / pandapower による DC/AC 潮流計算 | Requires electrical parameters / 電気パラメータが必要 |
 | `src/ac_powerflow/` | Advanced AC methods / 高度な AC 手法 | Requires electrical parameters / 電気パラメータが必要 |
-| `src/uc/` | Unit Commitment (MILP, PuLP + HiGHS) | Requires generators + demand / 発電機・需要データが必要 |
+| `src/uc/` | Unit Commitment (MILP, PuLP + HiGHS) with inter-regional transmission constraints / 地域間連系線制約付き UC ソルバ | Verified: 757 generators × 24h × 9 interconnections → Optimal in ~9s / 実証済み |
 | `src/converter/` | pandapower / MATPOWER export / エクスポート | Works / 動作可 |
 
 ## Future Work — Complementary Data Sources / 今後の展望 — 補完データソース
@@ -190,7 +190,7 @@ src/
   uc/                  Unit Commitment solver (experimental) / UC ソルバ（実験的）
   server/              FastAPI web server + GeoJSON loader / ウェブサーバー
   utils/               Geographic utilities / 地理ユーティリティ
-examples/              Demo scripts / デモスクリプト
+examples/              Demo scripts (incl. national UC with 757 generators) / デモスクリプト（757台全国UC含む）
 docs/                  GitHub Pages static site / 静的サイト
 scripts/               Build tools / ビルドツール（静的サイト生成、OSM 取得）
 schemas/               XML schema definitions / XML スキーマ定義
