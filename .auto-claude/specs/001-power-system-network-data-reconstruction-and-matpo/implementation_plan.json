@@ -184,7 +184,7 @@
           },
           "status": "completed",
           "notes": "Created src/reconstruction/reconnector.py with Reconnector class and ReconnectionResult dataclass. Reconnector.reconnect(net, isolation_result, config) reconnects isolated buses to the main component by: (1) finding nearest main-component bus via Haversine geodata distance, (2) creating synthetic lines using get_line_parameters_safe() with min_reactance enforcement, (3) validating Ybus after reconnection via pp.runpp(). Features: geodata-based nearest bus search with voltage-matching fallback, synthetic central hub for all-buses-isolated edge case, ext_grid recovery, namespace-prefixed line names (recon_line_{from}_{to}), and ReconnectionResult with lines_created, buses_reconnected, buses_unreachable, ybus_shape, ybus_nonsingular, synthetic_line_map, warnings, summary. All verification and functional tests pass.",
-          "updated_at": "2026-03-05T12:50:00.000000+00:00"
+          "updated_at": "2026-03-05T12:47:22.271122+00:00"
         },
         {
           "id": "subtask-3-4",
@@ -203,8 +203,9 @@
             "command": "PYTHONPATH=. python -c \"from src.reconstruction.data_synthesizer import DataSynthesizer; synth = DataSynthesizer(seed=42); synth2 = DataSynthesizer(seed=42); print(f'rng type: {type(synth._rng).__name__}'); print('OK: data_synthesizer verified with reproducible seeding')\"",
             "expected": "OK: data_synthesizer verified with reproducible seeding"
           },
-          "status": "pending",
-          "notes": "DataSynthesizer class takes seed parameter, uses np.random.default_rng(seed). synthesize_loads(net, region, config) checks for existing loads before creating new ones. synthesize_generation(net, config) scales generation to match demand + reserve. Both use existing load_estimator patterns. Stores seed in output metadata for audit trail."
+          "status": "completed",
+          "notes": "Created DataSynthesizer class with seed parameter using np.random.default_rng(seed) for reproducible synthesis. synthesize_loads(net, region) distributes regional demand across buses with voltage-weighted allocation and deterministic jitter, with existence checks (skip_existing_loads). synthesize_generation(net, reserve_margin) scales generator dispatch proportional to capacity with jitter, respecting capacity limits and skip_existing_generation flag. SynthesisResult dataclass follows BuildResult pattern with summary property. Optional GridDatabase integration for persisting load attributes. All functional tests pass: load creation, existence skipping, generation scaling, reproducibility (same seed = same output), different seeds produce different results.",
+          "updated_at": "2026-03-05T12:55:00.000000+00:00"
         }
       ]
     },
@@ -557,12 +558,12 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T12:42:09.071Z",
+  "updated_at": "2026-03-05T12:47:59.738Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-03-05T12:15:05.064039+00:00"
   },
-  "last_updated": "2026-03-05T12:41:33.612807+00:00"
+  "last_updated": "2026-03-05T12:47:22.271129+00:00"
 }
