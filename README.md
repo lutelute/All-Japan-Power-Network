@@ -5,6 +5,24 @@ Open Japanese power grid **geographic topology** dataset built from OpenStreetMa
 
 **Live Map:** https://lutelute.github.io/All-Japan-Grid/
 
+### Network Preview
+
+| All Japan | Tokyo | Kansai |
+|:---------:|:-----:|:------:|
+| ![All Japan](docs/assets/gif/network_all.gif) | ![Tokyo](docs/assets/gif/network_tokyo.gif) | ![Kansai](docs/assets/gif/network_kansai.gif) |
+
+| Hokkaido | Tohoku | Chubu |
+|:--------:|:------:|:-----:|
+| ![Hokkaido](docs/assets/gif/network_hokkaido.gif) | ![Tohoku](docs/assets/gif/network_tohoku.gif) | ![Chubu](docs/assets/gif/network_chubu.gif) |
+
+| Hokuriku | Chugoku | Shikoku |
+|:--------:|:-------:|:-------:|
+| ![Hokuriku](docs/assets/gif/network_hokuriku.gif) | ![Chugoku](docs/assets/gif/network_chugoku.gif) | ![Shikoku](docs/assets/gif/network_shikoku.gif) |
+
+| Kyushu | Okinawa |
+|:------:|:-------:|
+| ![Kyushu](docs/assets/gif/network_kyushu.gif) | ![Okinawa](docs/assets/gif/network_okinawa.gif) |
+
 > **Important:** This dataset provides the **geographic layout** of Japan's transmission infrastructure — where substations and lines are physically located and how they connect spatially. It is **not** a ready-to-use electrical model. See [Limitations](#limitations--what-this-data-is-not) below.
 
 ## Dataset
