@@ -42,6 +42,7 @@ from src.uc.constraints import (
 from src.uc.models import (
     GeneratorSchedule,
     Interconnection,
+    InterconnectionFlow,
     UCParameters,
     UCResult,
 )
@@ -222,6 +223,7 @@ def solve_uc(params: UCParameters) -> UCResult:
         _extract_solution(
             result, model, u, p, v, w, generators, timesteps,
             p_ch=p_ch, p_dis=p_dis, soc=soc, storage_ids=storage_ids,
+            interconnections=interconnections, f=f,
         )
     elif result.status == "Infeasible":
         _diagnose_infeasibility(result, generators, timesteps, demand)
@@ -439,12 +441,16 @@ def _extract_solution(
     p_dis: Optional[Dict[Tuple[str, int], pulp.LpVariable]] = None,
     soc: Optional[Dict[Tuple[str, int], pulp.LpVariable]] = None,
     storage_ids: Optional[set] = None,
+    interconnections: Optional[List[Interconnection]] = None,
+    f: Optional[Dict[Tuple[str, int], pulp.LpVariable]] = None,
 ) -> None:
     """Extract solution values into GeneratorSchedule objects.
 
     Populates the UCResult with per-generator schedules, cost
     breakdowns, and the total system cost.  For storage generators,
-    also extracts SOC, charge, and discharge profiles.
+    also extracts SOC, charge, and discharge profiles.  For
+    interconnections, extracts per-interconnection flow values and
+    logs saturation summary.
     """
     result.total_cost = pulp.value(model.objective)
 
@@ -518,6 +524,40 @@ def _extract_solution(
             len(timesteps),
             schedule.total_cost,
         )
+
+    # --- Extract interconnection flow results ------------------------------
+    if interconnections and f:
+        saturated_ids = []
+        for ic in interconnections:
+            flow_values = []
+            for t in timesteps:
+                flow_val = float(pulp.value(f[(ic.id, t)]))
+                flow_values.append(round(flow_val, 6))
+
+            ic_flow = InterconnectionFlow(
+                interconnection_id=ic.id,
+                flow_mw=flow_values,
+            )
+            result.interconnection_flows.append(ic_flow)
+
+            max_abs_flow = max(abs(fv) for fv in flow_values) if flow_values else 0.0
+            is_saturated = max_abs_flow >= ic.capacity_mw * 0.999
+            if is_saturated:
+                saturated_ids.append(ic.id)
+
+            logger.info(
+                "Interconnection %s: max_flow=%.1f MW / %.1f MW capacity%s",
+                ic.id,
+                max_abs_flow,
+                ic.capacity_mw,
+                " (SATURATED)" if is_saturated else "",
+            )
+
+        if saturated_ids:
+            logger.info(
+                "Saturated interconnections: %s",
+                ", ".join(saturated_ids),
+            )
 
 
 def _diagnose_infeasibility(
