@@ -1,0 +1,184 @@
+{
+  "24.360880,124.200598": {
+    "city": "石垣市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "907-8501",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.553935,128.087462": {
+    "quarter": "三原",
+    "city": "名護市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-8540",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.346158,127.967311": {
+    "road": "県道10号伊計平良川線",
+    "quarter": "与那城平宮",
+    "city": "うるま市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "904-2292",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.649218,127.872331": {
+    "road": "県道172号瀬底健堅線",
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0212",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.634526,127.862662": {
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "902-0225",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.638242,127.861177": {
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "902-0225",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.637658,127.864273": {
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "902-0225",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.681677,127.882821": {
+    "road": "県道114号線",
+    "quarter": "備瀬",
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0206",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.161476,127.790624": {
+    "road": "ニライカナイへの道",
+    "quarter": "つきしろ",
+    "city": "南城市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "901-0602",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.683130,127.886089": {
+    "quarter": "山川",
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0205",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.683640,127.883654": {
+    "quarter": "山川",
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0205",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.683413,127.883246": {
+    "quarter": "山川",
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0205",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.544672,128.030138": {
+    "road": "国道331号二見バイパス",
+    "quarter": "二見",
+    "city": "名護市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-8540",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.283015,127.804040": {
+    "road": "県道146号線",
+    "quarter": "添石",
+    "village": "中城村",
+    "county": "中頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "901-2403",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.238639,127.788554": {
+    "quarter": "北浜",
+    "village": "中城村",
+    "county": "中頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "901-2414",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.409364,127.738323": {
+    "quarter": "上地",
+    "village": "読谷村",
+    "county": "中頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "904-0321",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.643247,127.864636": {
+    "town": "本部町",
+    "county": "国頭郡",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "905-0227",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "26.356884,127.811392": {
+    "neighbourhood": "松本五丁目",
+    "city": "沖縄市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "904-2151",
+    "country": "日本",
+    "country_code": "jp"
+  },
+  "24.358992,124.207368": {
+    "city": "石垣市",
+    "province": "沖縄県",
+    "ISO3166-2-lvl4": "JP-47",
+    "postcode": "907-8501",
+    "country": "日本",
+    "country_code": "jp"
+  }
+}
