@@ -97,6 +97,57 @@ class DemandProfile:
 
 
 @dataclass
+class Interconnection:
+    """An inter-regional transmission interconnection.
+
+    Attributes:
+        id: Unique identifier (e.g., ``'ic_001'``).
+        name_en: English name of the interconnection.
+        from_region: Source region identifier.
+        to_region: Destination region identifier.
+        capacity_mw: Maximum transfer capacity in MW.
+        type: Interconnection type (``'AC'``, ``'HVDC'``, ``'FC'``).
+    """
+
+    id: str
+    name_en: str
+    from_region: str
+    to_region: str
+    capacity_mw: float
+    type: str = "AC"
+
+    def __post_init__(self) -> None:
+        """Validate interconnection parameters."""
+        if not self.id:
+            raise ValueError("Interconnection id must not be empty")
+        if self.capacity_mw <= 0:
+            raise ValueError(
+                f"Interconnection capacity_mw must be positive, got {self.capacity_mw}"
+            )
+        if self.from_region == self.to_region:
+            raise ValueError(
+                f"from_region and to_region must differ, both are '{self.from_region}'"
+            )
+
+
+@dataclass
+class InterconnectionFlow:
+    """Flow results for a single interconnection across the planning horizon.
+
+    Positive flow indicates power transfer from ``from_region`` to
+    ``to_region``. Negative flow indicates the reverse direction.
+
+    Attributes:
+        interconnection_id: ID of the interconnection this flow belongs to.
+        flow_mw: Power flow (MW) per period. Positive = from_region to
+            to_region direction.
+    """
+
+    interconnection_id: str = ""
+    flow_mw: List[float] = field(default_factory=list)
+
+
+@dataclass
 class UCParameters:
     """Input parameters for a unit commitment optimisation problem.
 
@@ -113,6 +164,9 @@ class UCParameters:
             ``None`` uses the solver default.
         solver_options: Additional solver-specific options passed through
             to the backend.
+        interconnections: List of inter-regional interconnections for
+            transmission capacity constraints. Empty list disables
+            interconnection modelling.
     """
 
     generators: List[Generator] = field(default_factory=list)
@@ -123,6 +177,7 @@ class UCParameters:
     solver_time_limit_s: Optional[float] = None
     mip_gap: Optional[float] = None
     solver_options: Dict[str, Any] = field(default_factory=dict)
+    interconnections: List[Interconnection] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate UC parameters."""
@@ -228,6 +283,8 @@ class UCResult:
         solve_time_s: Wall-clock solve time in seconds.
         gap: Relative MIP optimality gap achieved (0.0 = proven optimal).
         warnings: Non-fatal issues encountered during setup or solve.
+        interconnection_flows: Per-interconnection flow results across the
+            planning horizon. Empty when interconnections are not modelled.
     """
 
     status: str = "Not Solved"
@@ -236,6 +293,7 @@ class UCResult:
     solve_time_s: float = 0.0
     gap: Optional[float] = None
     warnings: List[str] = field(default_factory=list)
+    interconnection_flows: List[InterconnectionFlow] = field(default_factory=list)
 
     @property
     def is_optimal(self) -> bool:
