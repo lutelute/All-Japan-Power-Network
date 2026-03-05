@@ -52,6 +52,37 @@ THERMAL_FUEL_MAP = {
     "混焼": "mixed", "複合": "mixed",
 }
 
+# Operator name normalization (variants → canonical)
+# Copied from scripts/export_substations_geojson.py for consistency
+OPERATOR_NORMALIZE = {
+    "東京電力": "東京電力パワーグリッド",
+    "東京電力PG": "東京電力パワーグリッド",
+    "関西電力": "関西電力送配電",
+    "中部電力": "中部電力パワーグリッド",
+    "九州電力": "九州電力送配電",
+    "東北電力": "東北電力ネットワーク",
+    "北海道電力": "北海道電力ネットワーク",
+    "中国電力": "中国電力ネットワーク",
+    "四国電力": "四国電力送配電",
+    "北陸電力": "北陸電力送配電",
+    "沖縄電力": "沖縄電力",
+}
+
+
+def normalize_operator(operator_raw):
+    """Normalize operator name to canonical form."""
+    if not operator_raw:
+        return ""
+    op = str(operator_raw).strip()
+    # Check direct normalization
+    if op in OPERATOR_NORMALIZE:
+        return OPERATOR_NORMALIZE[op]
+    # Check prefix match
+    for prefix, canonical in OPERATOR_NORMALIZE.items():
+        if op.startswith(prefix):
+            return canonical
+    return op
+
 
 def haversine(lat1, lon1, lat2, lon2):
     """Haversine distance in km."""
@@ -122,7 +153,7 @@ def parse_p03(gml_path):
 
             plants.append({
                 "name": name.strip(),
-                "operator": owner.strip(),
+                "operator": normalize_operator(owner.strip()),
                 "address": address.strip(),
                 "capacity_mw": capacity,
                 "fuel_type": actual_fuel,
@@ -177,7 +208,7 @@ def match_and_enrich(osm_path, p03_plants, max_dist_km):
             changed = True
 
         if not props.get("operator", "").strip() and best_p03["operator"]:
-            props["operator"] = best_p03["operator"]
+            props["operator"] = normalize_operator(best_p03["operator"])
             changed = True
 
         fuel = props.get("fuel_type", "unknown")
@@ -204,9 +235,12 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(P03_GML):
-        print(f"ERROR: P03 GML not found at {P03_GML}")
-        print("  Download: curl -o data/external/P03-13.zip https://nlftp.mlit.go.jp/ksj/gml/data/P03/P03-13/P03-13.zip")
-        sys.exit(1)
+        print(f"  P03 GML not found at {P03_GML}")
+        print("  Download instructions:")
+        print("    curl -o data/external/P03-13.zip https://nlftp.mlit.go.jp/ksj/gml/data/P03/P03-13/P03-13.zip")
+        print("    cd data/external && unzip P03-13.zip")
+        print("  Skipping P03 enrichment.")
+        return
 
     p03_plants = parse_p03(P03_GML)
     print(f"  P03 total: {len(p03_plants)} plants")
