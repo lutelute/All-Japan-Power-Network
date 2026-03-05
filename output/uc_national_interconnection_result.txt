@@ -1,0 +1,62 @@
+================================================================================
+National UC with Interconnection Constraints
+  Generators >= 5.0 MW | 24h horizon | 5% reserve | MIP gap 1%
+================================================================================
+
+Loaded 757 generators, 274,408 MW across 10 regions
+
+─── (1) Per-Region UC ──────────────────────────────────────────────
+
+Region        Gens    Cap(MW)   Peak(MW) Status                   Cost  Time(s)
+----------------------------------------------------------------------------------
+hokkaido        72     10,713      6,963 Optimal          ¥113,387,766     0.72
+tohoku         130     39,826     25,887 Optimal          ¥807,808,608     1.91
+tokyo          175     67,404     43,813 Optimal        ¥2,897,293,789     2.42
+chubu          128     43,361     28,185 Optimal          ¥909,466,025     0.99
+hokuriku        32      7,860      5,109 Optimal           ¥43,397,355     0.27
+kansai          56     42,285     27,485 Optimal        ¥1,295,034,561     0.44
+chugoku         42     20,448     13,291 Optimal          ¥954,347,932     0.55
+shikoku         26     12,698      8,253 Optimal          ¥527,177,254     0.24
+kyushu          91     28,306     18,399 Optimal          ¥573,033,280     1.15
+okinawa          5      1,507        980 Optimal           ¥95,584,969     0.07
+
+─── (2) All-Japan UC — Copper Plate (no transmission limits) ────────
+
+  Generators: 757 | Capacity: 274,408 MW | Peak demand: 178,365 MW
+  Solving...
+
+  Status:     Optimal
+  Cost:       ¥7,650,669,856
+  Solve time: 9.28s
+
+─── (3) All-Japan UC — With Interconnection Constraints ─────────────
+
+  Generators: 757 | Interconnections: 9 | Peak demand: 178,365 MW
+  Solving...
+
+  Status:     Optimal
+  Cost:       ¥7,757,731,923
+  Solve time: 8.72s
+
+  Interconnection                              Max Flow   Capacity   Util
+  ------------------------------------------------------------------------
+  Hokkaido-Honshu HVDC Link                       900 MW      900 MW 100.0% SAT
+  Tohoku-Tokyo Interconnection                  5,550 MW    5,550 MW 100.0% SAT
+  Tokyo-Chubu FC Interconnection                2,100 MW    2,100 MW 100.0% SAT
+  Chubu-Kansai Interconnection                  2,530 MW    2,530 MW 100.0% SAT
+  Chubu-Hokuriku Interconnection                1,900 MW    1,900 MW 100.0% SAT
+  Kansai-Chugoku Interconnection                4,090 MW    4,090 MW 100.0% SAT
+  Kansai-Shikoku Interconnection                1,400 MW    1,400 MW 100.0% SAT
+  Chugoku-Shikoku Interconnection               1,200 MW    1,200 MW 100.0% SAT
+  Kanmon Interconnection (Chugoku-Kyushu)       2,780 MW    2,780 MW 100.0% SAT
+
+─── Comparison ─────────────────────────────────────────────────────
+  Copper plate:       ¥   7,650,669,856  (9.3s)
+  With IC constraints: ¥  7,757,731,923  (8.7s)
+  Congestion cost:    ¥     107,062,067  (+1.40%)
+
+================================================================================
+ALL SCENARIOS OPTIMAL — 757 generators feasible across all tests
+  Per-region (×10) + All-Japan copper plate + All-Japan with IC
+Total wall time: 29.3s
+================================================================================
