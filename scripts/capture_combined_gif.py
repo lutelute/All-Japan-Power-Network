@@ -326,6 +326,9 @@ async def main():
             # Navigate and wait for tiles to fully load
             if rid:
                 await page.evaluate(f'selectRegion("{rid}")')
+                # Okinawa: zoom into main island (default bbox is too wide)
+                if rid == "okinawa":
+                    await page.evaluate('map.setView([26.5, 127.8], 10)')
             else:
                 await page.evaluate('selectRegion(null); map.setView([35.5, 136.0], 5)')
 

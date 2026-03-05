@@ -22,7 +22,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import numpy as np
 
 # Japanese font
 for _fname in ["Hiragino Sans", "Hiragino Kaku Gothic Pro", "Noto Sans CJK JP", "BIZ UDGothic"]:
@@ -66,49 +65,115 @@ REGION_COLORS = {
 }
 
 
-def load_geojson(path):
-    if not os.path.exists(path):
+def _build_net(region_id):
+    """Build pandapower net for a single region."""
+    sub_path = os.path.join(DATA_DIR, f"{region_id}_substations.geojson")
+    line_path = os.path.join(DATA_DIR, f"{region_id}_lines.geojson")
+    if not os.path.exists(sub_path) or not os.path.exists(line_path):
         return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with open(sub_path, "r", encoding="utf-8") as f:
+        sub_fc = json.load(f)
+    with open(line_path, "r", encoding="utf-8") as f:
+        line_fc = json.load(f)
+    network = build_grid_network(sub_fc, line_fc, region_id)
+    result = PandapowerBuilder().build(network)
+    return result.net
+
+
+def _ybus_from_net(net):
+    """Build Ybus directly from pandapower line table (no power flow).
+
+    Reorders buses by lat+lon (NW→SE) so the sparsity pattern is more
+    square / block-diagonal.
+    """
+    from scipy import sparse as sp
+    import numpy as np
+
+    n = len(net.bus)
+    if n == 0 or len(net.line) == 0:
+        return None, n, len(net.line)
+
+    # Build geographic permutation (lat + lon, descending = NW first)
+    lats = np.zeros(n)
+    lons = np.zeros(n)
+    for idx in range(n):
+        geo = net.bus.at[idx, "geodata"] if "geodata" in net.bus.columns else None
+        if geo is not None and len(geo) == 2:
+            lats[idx] = geo[0]
+            lons[idx] = geo[1]
+    perm = np.argsort(-(lats + lons))
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n)
+
+    Y = sp.lil_matrix((n, n), dtype=complex)
+    for _, line in net.line.iterrows():
+        if not line.in_service:
+            continue
+        i, j = inv_perm[int(line.from_bus)], inv_perm[int(line.to_bus)]
+        if i >= n or j >= n:
+            continue
+        r = line.r_ohm_per_km * line.length_km
+        x = line.x_ohm_per_km * line.length_km
+        z = complex(r, x)
+        if abs(z) < 1e-12:
+            continue
+        y = 1.0 / z
+        Y[i, i] += y
+        Y[j, j] += y
+        Y[i, j] -= y
+        Y[j, i] -= y
+
+    Ybus = Y.tocsc()
+    return Ybus, n, len(net.line)
+
+    Y = sp.lil_matrix((n, n), dtype=complex)
+    for _, line in net.line.iterrows():
+        if not line.in_service:
+            continue
+        i, j = inv_perm[int(line.from_bus)], inv_perm[int(line.to_bus)]
+        if i >= n or j >= n:
+            continue
+        r = line.r_ohm_per_km * line.length_km
+        x = line.x_ohm_per_km * line.length_km
+        z = complex(r, x)
+        if abs(z) < 1e-12:
+            continue
+        y = 1.0 / z
+        Y[i, i] += y
+        Y[j, j] += y
+        Y[i, j] -= y
+        Y[j, i] -= y
+
+    Ybus = Y.tocsc()
+    return Ybus, n, len(net.line)
 
 
 def build_ybus_for_region(region):
-    """Build Ybus sparse matrix for a single region."""
-    sub_fc = load_geojson(os.path.join(DATA_DIR, f"{region}_substations.geojson"))
-    line_fc = load_geojson(os.path.join(DATA_DIR, f"{region}_lines.geojson"))
-    if not sub_fc or not line_fc:
-        return None, 0, 0
-
-    network = build_grid_network(sub_fc, line_fc, region)
-    builder = PandapowerBuilder()
-    result = builder.build(network)
-    net = result.net
-
-    if len(net.bus) == 0 or len(net.line) == 0:
-        return None, len(net.bus), len(net.line)
-
-    # Run power flow to populate _ppc (which contains Ybus)
-    import pandapower as pp
-    try:
-        pp.runpp(net, numba=False)
-    except Exception:
-        pass
-
-    if not hasattr(net, "_ppc") or net._ppc is None:
-        return None, len(net.bus), len(net.line)
-
-    internal = net._ppc.get("internal", {})
+    """Build Ybus for a single region, or all regions merged for All-Japan."""
     from scipy import sparse as sp
-    Ybus = internal.get("Ybus")
-    if Ybus is None:
-        return None, len(net.bus), len(net.line)
 
-    # Ensure sparse format
-    if not sp.issparse(Ybus):
-        Ybus = sp.csc_matrix(Ybus)
+    if region == "all":
+        blocks = []
+        all_buses = 0
+        all_lines = 0
+        for rid in REGIONS:
+            net = _build_net(rid)
+            if net is None or len(net.bus) == 0:
+                continue
+            Ybus, nb, nl = _ybus_from_net(net)
+            if Ybus is not None and Ybus.nnz > 0:
+                blocks.append(Ybus)
+            all_buses += nb
+            all_lines += nl
+        if not blocks:
+            return None, all_buses, all_lines
+        Ybus = sp.block_diag(blocks, format="csc")
+        return Ybus, all_buses, all_lines
 
-    return Ybus, len(net.bus), len(net.line)
+    net = _build_net(region)
+    if net is None:
+        return None, 0, 0
+    return _ybus_from_net(net)
 
 
 def plot_ybus_frame(Ybus, region_label, region_ja, n_bus, n_line, color, frame_path):
@@ -116,7 +181,7 @@ def plot_ybus_frame(Ybus, region_label, region_ja, n_bus, n_line, color, frame_p
     fig, ax = plt.subplots(figsize=(6, 6), facecolor="#1a1a2e")
     ax.set_facecolor("#1a1a2e")
 
-    if Ybus is not None:
+    if Ybus is not None and Ybus.nnz > 0:
         # Get sparse structure
         coo = Ybus.tocoo()
         n = Ybus.shape[0]
@@ -167,12 +232,19 @@ def main():
     frame_num = 0
     hold_frames = 3  # each region shown for hold_frames/GIF_FPS seconds
 
-    # Per-region Ybus
-    for region in REGIONS:
+    # Tour: All Japan → per-region → All Japan
+    tour = ["all"] + REGIONS + ["all"]
+
+    for region in tour:
         print(f"  {region}...", end=" ", flush=True)
         Ybus, n_bus, n_line = build_ybus_for_region(region)
-        label = region.title()
-        ja = REGION_JA.get(region, "")
+
+        if region == "all":
+            label = "All Japan"
+            ja = "全国"
+        else:
+            label = region.title()
+            ja = REGION_JA.get(region, "")
         color = REGION_COLORS.get(region, "#ff7f0e")
 
         if Ybus is not None:
