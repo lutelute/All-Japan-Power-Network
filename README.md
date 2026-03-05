@@ -7,7 +7,9 @@ Open Japanese power grid **geographic topology** dataset built from OpenStreetMa
 
 ### Network Preview
 
-![All-Japan Grid Tour](docs/assets/gif/network_tour.gif)
+| Network (Region Coloring) | Ybus Sparsity Pattern |
+|:-------------------------:|:---------------------:|
+| ![Network Tour](docs/assets/gif/network_tour.gif) | ![Ybus Tour](docs/assets/gif/ybus_tour.gif) |
 
 > **Important:** This dataset provides the **geographic layout** of Japan's transmission infrastructure — where substations and lines are physically located and how they connect spatially. It is **not** a ready-to-use electrical model. See [Limitations](#limitations--what-this-data-is-not) below.
 
