@@ -330,7 +330,7 @@ async def main():
                 await page.evaluate('selectRegion(null); map.setView([35.5, 136.0], 5)')
 
             # Transition frames: switch Ybus at midpoint to sync with map zoom
-            mid = TRANSITION // 2
+            mid = TRANSITION // 2 - 1  # switch Ybus 1 frame earlier to match map
             for i in range(TRANSITION):
                 await asyncio.sleep(1000 / GIF_FPS / 1000)
                 map_png = os.path.join(map_dir, f"frame_{frame_num:05d}.png")
