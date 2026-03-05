@@ -205,7 +205,7 @@
           },
           "status": "completed",
           "notes": "Created DataSynthesizer class with seed parameter using np.random.default_rng(seed) for reproducible synthesis. synthesize_loads(net, region) distributes regional demand across buses with voltage-weighted allocation and deterministic jitter, with existence checks (skip_existing_loads). synthesize_generation(net, reserve_margin) scales generator dispatch proportional to capacity with jitter, respecting capacity limits and skip_existing_generation flag. SynthesisResult dataclass follows BuildResult pattern with summary property. Optional GridDatabase integration for persisting load attributes. All functional tests pass: load creation, existence skipping, generation scaling, reproducibility (same seed = same output), different seeds produce different results.",
-          "updated_at": "2026-03-05T12:55:00.000000+00:00"
+          "updated_at": "2026-03-05T12:52:16.084565+00:00"
         }
       ]
     },
@@ -237,8 +237,9 @@
             "command": "PYTHONPATH=. python -c \"from src.reconstruction.pipeline import ReconstructionPipeline, PipelineResult; from src.reconstruction.config import ReconstructionConfig; cfg = ReconstructionConfig(mode='simplify', seed=42); pipeline = ReconstructionPipeline(cfg); print(f'Pipeline created with mode={cfg.mode}'); print('OK: pipeline module verified')\"",
             "expected": "OK: pipeline module verified"
           },
-          "status": "pending",
-          "notes": "ReconstructionPipeline class with run(net, region) method returning PipelineResult. PipelineResult extends BuildResult pattern with reconstruction_mode, seed, isolation_stats, reconstruction_stats, synthesis_stats, warnings, summary. Pipeline is idempotent - safe to re-run."
+          "status": "completed",
+          "notes": "Created ReconstructionPipeline class orchestrating Isolator -> Simplifier/Reconnector -> DataSynthesizer chain. PipelineResult dataclass with summary property aggregates isolation, simplification/reconnection, and synthesis results. Pipeline is idempotent and reproducible (same seed = same output). Supports deep-copy mode for safety, optional GridDatabase integration. Verification and comprehensive e2e test pass (simplify mode, reconnect mode, reproducibility, summary validation).",
+          "updated_at": "2026-03-05T13:00:00.000000+00:00"
         },
         {
           "id": "subtask-4-2",
@@ -558,12 +559,12 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T12:47:59.738Z",
+  "updated_at": "2026-03-05T12:52:55.669Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-03-05T12:15:05.064039+00:00"
   },
-  "last_updated": "2026-03-05T12:47:22.271129+00:00"
+  "last_updated": "2026-03-05T12:52:16.084571+00:00"
 }
