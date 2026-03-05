@@ -352,8 +352,8 @@
             "expected": "passed"
           },
           "status": "completed",
-          "notes": "Created tests/test_db.py with 70 unit tests across 11 test classes covering: schema definition (table existence, column validation, repr), GridDatabase initialisation (in-memory, file-based, data persistence), generator CRUD (create/read, partial upsert, overwrite, timestamps, delete, list, invalid attrs, storage fields, UC cost fields), substation CRUD (create/read, partial upsert, delete, list, tap range fields), load CRUD (create/read, partial upsert, delete, list, in_service default, source field), bulk operations (get_all_attributes keys/empty/populated), sample_grid_db fixture validation (coal/nuclear gen, substations, loads), schema versioning (initial version, persistence, table population), migration manager (empty db version, ensure_schema creates tables/returns version/idempotent, apply_pending, custom migration applied, data preservation, get_table_columns, registered migrations sequential/v1 exists), SQLite pragmas (WAL mode, foreign keys), edge cases (minimal record, multiple upserts, delete+recreate, 100 records, unicode, cross-table independence). All 70 tests pass.",
-          "updated_at": "2026-03-05T14:00:00.000000+00:00"
+          "notes": "Created tests/test_db.py with 70 unit tests across 11 test classes covering: schema definition (table existence, column validation, repr), GridDatabase initialisation (in-memory, file-based, data persistence), generator CRUD (create/read, partial upsert, overwrite, timestamps, delete, list, invalid attrs, storage fields, UC cost fields), substation CRUD (create/read, partial upsert, delete, list, tap range fields), load CRUD (create/read, partial upsert, delete, list, in_service default, source field), bulk operations (get_all_attributes keys/empty/populated), sample_grid_db fixture validation, schema versioning (initial version, persistence, table population), migration manager (empty db version, ensure_schema, custom migration, data preservation, get_table_columns), SQLite pragmas (WAL mode, foreign keys), edge cases (minimal record, multiple upserts, delete+recreate, 100 records, unicode, cross-table independence). All 70 tests pass in 0.25s.",
+          "updated_at": "2026-03-05T13:22:20.707615+00:00"
         },
         {
           "id": "subtask-5-4",
@@ -372,8 +372,9 @@
             "command": "PYTHONPATH=. pytest tests/test_reconstruction_integration.py -v --tb=short 2>&1 | tail -5",
             "expected": "passed"
           },
-          "status": "pending",
-          "notes": "Tests: test_simplify_then_powerflow, test_reconnect_then_powerflow, test_reconstruct_then_matpower_export, test_reconstruct_with_db_attributes, test_full_pipeline_simplify, test_full_pipeline_reconnect."
+          "status": "completed",
+          "notes": "Created tests/test_reconstruction_integration.py with 27 integration tests across 8 test classes: TestSimplifyThenPowerflow (4 tests: DC/AC PF, single component, Ybus extractable), TestReconnectThenPowerflow (5 tests: DC/AC PF, Ybus valid, preserves buses, adds synthetic lines), TestReconstructThenMatpowerExport (4 tests: simplify/reconnect export, bus count matches, validation flags), TestReconstructWithDbAttributes (3 tests: load persistence, generator attrs, update propagation), TestFullPipelineSimplify (3 tests: full pipeline, metadata, load synthesis), TestFullPipelineReconnect (3 tests: full pipeline, bus count, Ybus dimensions), TestReproducibilityIntegration (2 tests: same seed identical, mode switch different), TestCustomSolverAfterReconstruction (3 tests: custom NR on simplified/reconnected, shape consistency). Fixed convergence issue by pre-placing loads on isolated buses to prevent massive synthetic load allocation. All 27 tests pass.",
+          "updated_at": "2026-03-06T00:00:00.000000+00:00"
         },
         {
           "id": "subtask-5-5",
@@ -564,12 +565,12 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T13:18:02.616Z",
+  "updated_at": "2026-03-05T15:10:43.908Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-03-05T12:15:05.064039+00:00"
   },
-  "last_updated": "2026-03-05T13:17:30.381403+00:00"
+  "last_updated": "2026-03-05T13:22:20.707619+00:00"
 }
