@@ -114,18 +114,35 @@ def _build_net(region_id):
 
 
 def _ybus_from_net(net):
-    """Build Ybus directly from pandapower line table (no power flow)."""
+    """Build Ybus directly from pandapower line table (no power flow).
+
+    Reorders buses by lat+lon (NW→SE) so the sparsity pattern is more
+    square / block-diagonal.
+    """
     from scipy import sparse as sp
+    import numpy as np
 
     n = len(net.bus)
     if n == 0 or len(net.line) == 0:
         return None, n, len(net.line)
 
+    # Build geographic permutation (lat + lon, descending = NW first)
+    lats = np.zeros(n)
+    lons = np.zeros(n)
+    for idx in range(n):
+        geo = net.bus.at[idx, "geodata"] if "geodata" in net.bus.columns else None
+        if geo is not None and len(geo) == 2:
+            lats[idx] = geo[0]
+            lons[idx] = geo[1]
+    perm = np.argsort(-(lats + lons))
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n)
+
     Y = sp.lil_matrix((n, n), dtype=complex)
     for _, line in net.line.iterrows():
         if not line.in_service:
             continue
-        i, j = int(line.from_bus), int(line.to_bus)
+        i, j = inv_perm[int(line.from_bus)], inv_perm[int(line.to_bus)]
         if i >= n or j >= n:
             continue
         r = line.r_ohm_per_km * line.length_km
@@ -312,13 +329,15 @@ async def main():
             else:
                 await page.evaluate('selectRegion(null); map.setView([35.5, 136.0], 5)')
 
-            # Transition frames: map animating, keep previous Ybus
+            # Transition frames: switch Ybus at midpoint to sync with map zoom
+            mid = TRANSITION // 2
             for i in range(TRANSITION):
                 await asyncio.sleep(1000 / GIF_FPS / 1000)
                 map_png = os.path.join(map_dir, f"frame_{frame_num:05d}.png")
                 await page.screenshot(path=map_png)
                 combined = os.path.join(FRAME_DIR, f"frame_{frame_num:05d}.png")
-                combine_side_by_side(map_png, ybus_cache[prev_key], combined)
+                ybus_key = prev_key if i < mid else key
+                combine_side_by_side(map_png, ybus_cache[ybus_key], combined)
                 frame_num += 1
 
             # Wait for tiles
