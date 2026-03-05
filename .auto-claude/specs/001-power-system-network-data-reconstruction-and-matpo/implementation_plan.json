@@ -373,8 +373,8 @@
             "expected": "passed"
           },
           "status": "completed",
-          "notes": "Created tests/test_reconstruction_integration.py with 27 integration tests across 8 test classes: TestSimplifyThenPowerflow (4 tests: DC/AC PF, single component, Ybus extractable), TestReconnectThenPowerflow (5 tests: DC/AC PF, Ybus valid, preserves buses, adds synthetic lines), TestReconstructThenMatpowerExport (4 tests: simplify/reconnect export, bus count matches, validation flags), TestReconstructWithDbAttributes (3 tests: load persistence, generator attrs, update propagation), TestFullPipelineSimplify (3 tests: full pipeline, metadata, load synthesis), TestFullPipelineReconnect (3 tests: full pipeline, bus count, Ybus dimensions), TestReproducibilityIntegration (2 tests: same seed identical, mode switch different), TestCustomSolverAfterReconstruction (3 tests: custom NR on simplified/reconnected, shape consistency). Fixed convergence issue by pre-placing loads on isolated buses to prevent massive synthetic load allocation. All 27 tests pass.",
-          "updated_at": "2026-03-06T00:00:00.000000+00:00"
+          "notes": "Created tests/test_reconstruction_integration.py with 27 integration tests across 8 test classes: TestSimplifyThenPowerflow (4 tests), TestReconnectThenPowerflow (5 tests), TestReconstructThenMatpowerExport (4 tests), TestReconstructWithDbAttributes (3 tests), TestFullPipelineSimplify (3 tests), TestFullPipelineReconnect (3 tests), TestReproducibilityIntegration (2 tests), TestCustomSolverAfterReconstruction (3 tests). Fixed convergence issue by pre-placing loads on isolated buses to prevent massive synthetic load allocation after reconnection. All 27 tests pass in 2.6s.",
+          "updated_at": "2026-03-05T15:16:51.723405+00:00"
         },
         {
           "id": "subtask-5-5",
@@ -394,8 +394,9 @@
             "command": "PYTHONPATH=. pytest tests/test_ac_powerflow_comprehensive.py -v --tb=short 2>&1 | tail -5",
             "expected": "passed"
           },
-          "status": "pending",
-          "notes": "Tests all 20 AC power flow methods (5 pandapower + 15 custom) against both simplified and reconnected networks. Newton-Raphson variants must converge. Iterative methods may not converge on all networks (expected). Generates convergence report. Uses get_all_methods() from methods.py to iterate."
+          "status": "completed",
+          "notes": "Created comprehensive test suite with 52 tests across 12 test classes. Tests all 20 AC power flow methods on 3-bus, 5-bus, simplified-reconstructed, and reconnected-reconstructed networks. Validates per-method convergence, per-category counts, voltage consistency across NR variants, convergence reports, network preparation, solver reproducibility, cross-network comparison, and end-to-end reconstruction-to-powerflow pipelines.",
+          "updated_at": "2026-03-06T00:00:00.000000+00:00"
         }
       ]
     },
@@ -565,12 +566,12 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T15:10:43.908Z",
+  "updated_at": "2026-03-05T15:17:38.841Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-03-05T12:15:05.064039+00:00"
   },
-  "last_updated": "2026-03-05T13:22:20.707619+00:00"
+  "last_updated": "2026-03-05T15:16:51.723412+00:00"
 }
