@@ -11,6 +11,10 @@ Tests cover:
 - Flow sign convention (positive = from_region -> to_region)
 - Two-region integration test via solve_uc with interconnection flow verification
 - Regression test: solve_uc without interconnections produces unchanged behavior
+- Decomposition fallback: RegionalDecomposer returns single partition with interconnections
+- Decomposition unchanged: RegionalDecomposer decomposes normally without interconnections
+- Config toggle: interconnection.enabled=false prevents loading/use
+- Decomposed solve with interconnections falls back to national MILP
 """
 
 from pathlib import Path
@@ -18,12 +22,14 @@ from typing import Dict, List, Tuple
 
 import pulp
 import pytest
+import yaml
 
 from src.model.generator import Generator
 from src.uc.constraints import (
     add_nodal_balance_constraints,
     add_transmission_capacity_constraints,
 )
+from src.uc.decomposition import RegionalDecomposer
 from src.uc.interconnection_loader import InterconnectionLoader
 from src.uc.models import (
     DemandProfile,
@@ -1001,3 +1007,419 @@ class TestSolveWithoutInterconnections:
         # Total cost equals sum of generator costs
         sum_gen_costs = sum(s.total_cost for s in result.schedules)
         assert abs(result.total_cost - sum_gen_costs) < 1.0
+
+
+# ======================================================================
+# Helpers — decomposition tests
+# ======================================================================
+
+
+def _make_two_region_generators() -> List[Generator]:
+    """Create generators across two regions for decomposition tests.
+
+    Returns 4 generators in 2 regions (total 500 MW):
+    - tokyo: g_tokyo_1 (200 MW coal), g_tokyo_2 (100 MW lng)
+    - chubu: g_chubu_1 (150 MW coal), g_chubu_2 (50 MW oil)
+    """
+    g1 = make_generator(
+        id="g_tokyo_1",
+        name="Tokyo Coal",
+        capacity_mw=200.0,
+        fuel_type="coal",
+        region="tokyo",
+        p_min_mw=50.0,
+        fuel_cost_per_mwh=30.0,
+        no_load_cost=100.0,
+        startup_cost=5000.0,
+    )
+    g2 = make_generator(
+        id="g_tokyo_2",
+        name="Tokyo LNG",
+        capacity_mw=100.0,
+        fuel_type="lng",
+        region="tokyo",
+        p_min_mw=20.0,
+        fuel_cost_per_mwh=50.0,
+        no_load_cost=50.0,
+        startup_cost=2000.0,
+    )
+    g3 = make_generator(
+        id="g_chubu_1",
+        name="Chubu Coal",
+        capacity_mw=150.0,
+        fuel_type="coal",
+        region="chubu",
+        p_min_mw=30.0,
+        fuel_cost_per_mwh=35.0,
+        no_load_cost=80.0,
+        startup_cost=4000.0,
+    )
+    g4 = make_generator(
+        id="g_chubu_2",
+        name="Chubu Oil",
+        capacity_mw=50.0,
+        fuel_type="oil",
+        region="chubu",
+        p_min_mw=10.0,
+        fuel_cost_per_mwh=80.0,
+        no_load_cost=20.0,
+        startup_cost=1000.0,
+    )
+    return [g1, g2, g3, g4]
+
+
+# ======================================================================
+# TestDecompositionFallback — RegionalDecomposer with interconnections
+# ======================================================================
+
+
+class TestDecompositionFallback:
+    """Tests that RegionalDecomposer falls back to national MILP with interconnections."""
+
+    def test_decomposition_fallback_with_interconnections(self) -> None:
+        """RegionalDecomposer returns [params] when interconnections are present."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+
+        # Should return single partition (no decomposition)
+        assert len(partitions) == 1
+        assert partitions[0] is params
+
+    def test_decomposition_fallback_preserves_all_generators(self) -> None:
+        """Fallback partition contains all original generators."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+
+        gen_ids = {g.id for g in partitions[0].generators}
+        expected_ids = {g.id for g in gens}
+        assert gen_ids == expected_ids
+
+    def test_decomposition_fallback_preserves_interconnections(self) -> None:
+        """Fallback partition preserves the interconnections list."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        ic1 = make_interconnection(
+            id="ic_01", from_region="tokyo", to_region="chubu", capacity_mw=100.0,
+        )
+        ic2 = make_interconnection(
+            id="ic_02", from_region="chubu", to_region="tokyo", capacity_mw=200.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic1, ic2],
+        )
+
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+
+        assert len(partitions[0].interconnections) == 2
+        ic_ids = {ic.id for ic in partitions[0].interconnections}
+        assert ic_ids == {"ic_01", "ic_02"}
+
+    def test_decomposition_without_interconnections_unchanged(self) -> None:
+        """RegionalDecomposer decomposes normally when interconnections list is empty."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[],  # No interconnections
+        )
+
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+
+        # Should decompose into 2 regions (tokyo + chubu)
+        assert len(partitions) == 2
+
+        # Verify each partition has generators from only one region
+        for p in partitions:
+            regions = {g.region for g in p.generators}
+            assert len(regions) == 1, (
+                f"Partition has generators from multiple regions: {regions}"
+            )
+
+    def test_decomposition_without_interconnections_field_decomposes(self) -> None:
+        """RegionalDecomposer decomposes when interconnections defaults (empty)."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        # Don't pass interconnections — uses default empty list
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+        )
+
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+
+        # Should decompose into 2 regions
+        assert len(partitions) == 2
+
+
+# ======================================================================
+# TestConfigToggle — interconnection.enabled config flag
+# ======================================================================
+
+
+class TestConfigToggle:
+    """Tests for the interconnection.enabled configuration toggle."""
+
+    def test_config_toggle_disabled(self, project_root: Path) -> None:
+        """With interconnection.enabled=false, interconnections are not loaded/used."""
+        config_path = project_root / "config" / "uc_config.yaml"
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        ic_config = config.get("interconnection", {})
+
+        # Default config has enabled=false
+        assert ic_config.get("enabled") is False, (
+            "Default config should have interconnection.enabled=false"
+        )
+
+        # When disabled, a solve should NOT use interconnections
+        # Create a simple 2-region problem
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        # Simulate config-driven behavior: if not enabled, don't add interconnections
+        if not ic_config.get("enabled", False):
+            params = UCParameters(
+                generators=gens,
+                demand=dp,
+                time_horizon=th,
+                interconnections=[],  # Disabled → no interconnections
+            )
+        else:
+            # This branch would load from data_path
+            loader = InterconnectionLoader()
+            ics = loader.load(str(project_root / ic_config["data_path"]))
+            params = UCParameters(
+                generators=gens,
+                demand=dp,
+                time_horizon=th,
+                interconnections=ics,
+            )
+
+        result = solve_uc(params)
+
+        assert result.status == "Optimal"
+        # With disabled config, no interconnection flows should be present
+        assert len(result.interconnection_flows) == 0
+
+    def test_config_has_data_path(self, project_root: Path) -> None:
+        """Config specifies a valid data_path for interconnections YAML."""
+        config_path = project_root / "config" / "uc_config.yaml"
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        ic_config = config.get("interconnection", {})
+        data_path = ic_config.get("data_path")
+        assert data_path is not None, "interconnection.data_path should be set"
+        assert data_path == "data/reference/interconnections.yaml"
+
+        # Verify the file actually exists
+        full_path = project_root / data_path
+        assert full_path.exists(), f"Interconnection data file not found: {full_path}"
+
+    def test_config_toggle_enabled_loads_interconnections(
+        self, project_root: Path
+    ) -> None:
+        """When enabled=true would be set, interconnections can be loaded from data_path."""
+        config_path = project_root / "config" / "uc_config.yaml"
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        ic_config = config.get("interconnection", {})
+        data_path = ic_config.get("data_path")
+
+        # Simulate enabled=true: load interconnections from data_path
+        loader = InterconnectionLoader()
+        ics = loader.load(str(project_root / data_path))
+
+        assert len(ics) == 9
+        assert all(isinstance(ic, Interconnection) for ic in ics)
+
+
+# ======================================================================
+# TestRegionalDecomposerSolveWithInterconnections — solve_decomposed
+# ======================================================================
+
+
+class TestRegionalDecomposerSolveWithInterconnections:
+    """Tests that solve_decomposed() falls back to national MILP with interconnections."""
+
+    def test_regional_decomposer_solve_with_interconnections(self) -> None:
+        """solve_decomposed() falls back to national MILP and produces Optimal result."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        # Low demand so the problem is easily feasible
+        dp = _flat_demand(200.0, 6)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        decomposer = RegionalDecomposer()
+        result = decomposer.solve_decomposed(params)
+
+        assert result.status == "Optimal"
+        assert result.total_cost > 0
+        assert result.solve_time_s >= 0
+
+    def test_solve_decomposed_has_all_generators(self) -> None:
+        """Merged result from solve_decomposed contains all generators."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        decomposer = RegionalDecomposer()
+        result = decomposer.solve_decomposed(params)
+
+        gen_ids_in_result = {s.generator_id for s in result.schedules}
+        expected_ids = {g.id for g in gens}
+        assert gen_ids_in_result == expected_ids, (
+            f"Missing: {expected_ids - gen_ids_in_result}, "
+            f"Extra: {gen_ids_in_result - expected_ids}"
+        )
+
+    def test_solve_decomposed_single_partition_solves_with_interconnections(
+        self,
+    ) -> None:
+        """Single partition from fallback produces correct solve_uc result with flows."""
+        gens = _make_two_region_generators()
+        th = TimeHorizon(num_periods=6, period_duration_h=1.0)
+        dp = _flat_demand(200.0, 6)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        # Verify the partition returns [params] and solve_uc on that
+        # partition produces interconnection flows correctly.
+        decomposer = RegionalDecomposer()
+        partitions = decomposer.partition(params)
+        assert len(partitions) == 1
+
+        # Solve the single partition directly (as solve_decomposed does)
+        direct_result = solve_uc(partitions[0])
+        assert direct_result.status == "Optimal"
+        assert len(direct_result.interconnection_flows) == 1
+        assert direct_result.interconnection_flows[0].interconnection_id == "ic_tc"
+        assert len(direct_result.interconnection_flows[0].flow_mw) == 6
+
+    def test_solve_decomposed_schedule_lengths(self) -> None:
+        """All schedules from solve_decomposed have correct length."""
+        gens = _make_two_region_generators()
+        num_periods = 6
+        th = TimeHorizon(num_periods=num_periods, period_duration_h=1.0)
+        dp = _flat_demand(200.0, num_periods)
+
+        ic = make_interconnection(
+            id="ic_tc",
+            from_region="tokyo",
+            to_region="chubu",
+            capacity_mw=100.0,
+        )
+
+        params = UCParameters(
+            generators=gens,
+            demand=dp,
+            time_horizon=th,
+            interconnections=[ic],
+        )
+
+        decomposer = RegionalDecomposer()
+        result = decomposer.solve_decomposed(params)
+
+        for sched in result.schedules:
+            assert len(sched.commitment) == num_periods, (
+                f"Generator {sched.generator_id}: commitment length "
+                f"{len(sched.commitment)} != {num_periods}"
+            )
+            assert len(sched.power_output_mw) == num_periods, (
+                f"Generator {sched.generator_id}: power_output length "
+                f"{len(sched.power_output_mw)} != {num_periods}"
+            )
