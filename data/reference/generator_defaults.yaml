@@ -1,0 +1,351 @@
+# Generator Default Parameters by Fuel Type
+# 燃料種別ごとの発電機デフォルトパラメータ
+#
+# Sources:
+#   - 電力広域的運営推進機関 (OCCTO) 供給計画
+#   - 資源エネルギー庁 発電コスト検証委員会 (2021)
+#   - 各電力会社 有価証券報告書
+#   - IEEE/IEE Japan 標準パラメータ
+#
+# Units:
+#   capacity_mw: MW (reference typical unit size)
+#   p_min_fraction: fraction of capacity_mw (0-1)
+#   ramp_up_fraction: fraction of capacity_mw per hour
+#   ramp_down_fraction: fraction of capacity_mw per hour
+#   min_up_time_h: hours
+#   min_down_time_h: hours
+#   startup_time_h: hours (cold start to sync)
+#   shutdown_time_h: hours (desync to fully off)
+#   startup_cost_per_mw: JPY per MW of capacity
+#   shutdown_cost_per_mw: JPY per MW of capacity
+#   fuel_cost_per_mwh: JPY/MWh (variable cost including fuel + variable O&M)
+#   no_load_cost_per_mw: JPY/MW/h (fixed cost while committed)
+#   labor_cost_per_h: JPY/h (staffing cost per unit)
+#   heat_rate_kj_per_kwh: kJ/kWh (thermal efficiency indicator)
+#   co2_intensity_kg_per_mwh: kg-CO2/MWh
+#   typical_lifetime_years: years
+#   typical_construction_years: years (construction period)
+#   planned_outage_rate: fraction (0-1), annual planned outage rate
+#   forced_outage_rate: fraction (0-1), annual forced outage rate
+#   capacity_factor: fraction (0-1), typical annual capacity factor
+
+fuel_types:
+
+  coal:
+    name_ja: 石炭火力
+    name_en: Coal Thermal
+    category: thermal
+    dispatchable: true
+    typical_unit_mw: 600
+    p_min_fraction: 0.30
+    ramp_up_fraction: 0.02        # ~2%/h of capacity (slow)
+    ramp_down_fraction: 0.02
+    min_up_time_h: 8
+    min_down_time_h: 8
+    startup_time_h: 12            # cold start: 12h typical
+    shutdown_time_h: 6
+    startup_cost_per_mw: 15       # 15 JPY/MW -> 9000 JPY for 600MW
+    shutdown_cost_per_mw: 5
+    fuel_cost_per_mwh: 4500
+    no_load_cost_per_mw: 1.0
+    labor_cost_per_h: 2000
+    heat_rate_kj_per_kwh: 9200
+    co2_intensity_kg_per_mwh: 864
+    typical_lifetime_years: 40
+    typical_construction_years: 5
+    planned_outage_rate: 0.06
+    forced_outage_rate: 0.04
+    capacity_factor: 0.70
+
+  lng:
+    name_ja: LNG火力 (GTCC含む)
+    name_en: LNG/Gas Turbine Combined Cycle
+    category: thermal
+    dispatchable: true
+    typical_unit_mw: 400
+    p_min_fraction: 0.30
+    ramp_up_fraction: 0.05        # ~5%/h (moderate)
+    ramp_down_fraction: 0.05
+    min_up_time_h: 4
+    min_down_time_h: 4
+    startup_time_h: 4             # GTCC cold start: ~4h
+    shutdown_time_h: 2
+    startup_cost_per_mw: 10
+    shutdown_cost_per_mw: 3
+    fuel_cost_per_mwh: 7000
+    no_load_cost_per_mw: 0.8
+    labor_cost_per_h: 1500
+    heat_rate_kj_per_kwh: 7200
+    co2_intensity_kg_per_mwh: 376
+    typical_lifetime_years: 30
+    typical_construction_years: 4
+    planned_outage_rate: 0.05
+    forced_outage_rate: 0.03
+    capacity_factor: 0.55
+
+  oil:
+    name_ja: 石油火力
+    name_en: Oil Thermal
+    category: thermal
+    dispatchable: true
+    typical_unit_mw: 350
+    p_min_fraction: 0.25
+    ramp_up_fraction: 0.08        # ~8%/h (relatively fast)
+    ramp_down_fraction: 0.08
+    min_up_time_h: 2
+    min_down_time_h: 2
+    startup_time_h: 3
+    shutdown_time_h: 1
+    startup_cost_per_mw: 8
+    shutdown_cost_per_mw: 2
+    fuel_cost_per_mwh: 9000
+    no_load_cost_per_mw: 0.7
+    labor_cost_per_h: 1200
+    heat_rate_kj_per_kwh: 9500
+    co2_intensity_kg_per_mwh: 695
+    typical_lifetime_years: 35
+    typical_construction_years: 3
+    planned_outage_rate: 0.06
+    forced_outage_rate: 0.05
+    capacity_factor: 0.10         # peaker, low utilization
+
+  nuclear:
+    name_ja: 原子力
+    name_en: Nuclear
+    category: nuclear
+    dispatchable: true
+    typical_unit_mw: 1100
+    p_min_fraction: 0.50
+    ramp_up_fraction: 0.005       # ~0.5%/h (very slow)
+    ramp_down_fraction: 0.005
+    min_up_time_h: 168            # 1 week minimum (safety)
+    min_down_time_h: 168
+    startup_time_h: 72            # several days
+    shutdown_time_h: 24
+    startup_cost_per_mw: 50
+    shutdown_cost_per_mw: 20
+    fuel_cost_per_mwh: 1500
+    no_load_cost_per_mw: 2.0
+    labor_cost_per_h: 5000
+    heat_rate_kj_per_kwh: 10800
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 40    # 40-60 years (with extension)
+    typical_construction_years: 10
+    planned_outage_rate: 0.10     # periodic inspections
+    forced_outage_rate: 0.02
+    capacity_factor: 0.70
+
+  hydro:
+    name_ja: 一般水力
+    name_en: Conventional Hydro
+    category: renewable
+    dispatchable: true
+    typical_unit_mw: 50
+    p_min_fraction: 0.10
+    ramp_up_fraction: 1.00        # instant ramp (water valve)
+    ramp_down_fraction: 1.00
+    min_up_time_h: 1
+    min_down_time_h: 1
+    startup_time_h: 0.1           # minutes
+    shutdown_time_h: 0.1
+    startup_cost_per_mw: 1
+    shutdown_cost_per_mw: 0.5
+    fuel_cost_per_mwh: 0
+    no_load_cost_per_mw: 0.1
+    labor_cost_per_h: 500
+    heat_rate_kj_per_kwh: 0
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 60
+    typical_construction_years: 5
+    planned_outage_rate: 0.03
+    forced_outage_rate: 0.01
+    capacity_factor: 0.45
+
+  pumped_hydro:
+    name_ja: 揚水式水力
+    name_en: Pumped-Storage Hydro
+    category: storage
+    dispatchable: true
+    typical_unit_mw: 300
+    p_min_fraction: 0.20
+    ramp_up_fraction: 1.00        # instant ramp
+    ramp_down_fraction: 1.00
+    min_up_time_h: 1
+    min_down_time_h: 1
+    startup_time_h: 0.05          # ~3 minutes
+    shutdown_time_h: 0.05
+    startup_cost_per_mw: 2
+    shutdown_cost_per_mw: 1
+    fuel_cost_per_mwh: 2000       # includes pumping cost
+    no_load_cost_per_mw: 0.2
+    labor_cost_per_h: 800
+    heat_rate_kj_per_kwh: 0
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 60
+    typical_construction_years: 8
+    planned_outage_rate: 0.04
+    forced_outage_rate: 0.01
+    capacity_factor: 0.10
+    # Storage-specific defaults
+    storage:
+      charge_efficiency: 0.87
+      discharge_efficiency: 0.87
+      typical_storage_hours: 6     # hours at full capacity
+      initial_soc_fraction: 0.50
+      min_terminal_soc_fraction: 0.30
+
+  geothermal:
+    name_ja: 地熱
+    name_en: Geothermal
+    category: renewable
+    dispatchable: true
+    typical_unit_mw: 30
+    p_min_fraction: 0.70          # must-run characteristics
+    ramp_up_fraction: 0.03
+    ramp_down_fraction: 0.03
+    min_up_time_h: 24
+    min_down_time_h: 24
+    startup_time_h: 24
+    shutdown_time_h: 12
+    startup_cost_per_mw: 20
+    shutdown_cost_per_mw: 10
+    fuel_cost_per_mwh: 0
+    no_load_cost_per_mw: 0.5
+    labor_cost_per_h: 800
+    heat_rate_kj_per_kwh: 0
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 30
+    typical_construction_years: 5
+    planned_outage_rate: 0.05
+    forced_outage_rate: 0.03
+    capacity_factor: 0.80
+
+  wind:
+    name_ja: 風力
+    name_en: Wind
+    category: renewable
+    dispatchable: false
+    typical_unit_mw: 30
+    p_min_fraction: 0.0
+    ramp_up_fraction: 1.00        # weather-dependent
+    ramp_down_fraction: 1.00
+    min_up_time_h: 1
+    min_down_time_h: 1
+    startup_time_h: 0.0
+    shutdown_time_h: 0.0
+    startup_cost_per_mw: 0
+    shutdown_cost_per_mw: 0
+    fuel_cost_per_mwh: 0
+    no_load_cost_per_mw: 0.0
+    labor_cost_per_h: 200
+    heat_rate_kj_per_kwh: 0
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 20
+    typical_construction_years: 2
+    planned_outage_rate: 0.03
+    forced_outage_rate: 0.02
+    capacity_factor: 0.25
+
+  solar:
+    name_ja: 太陽光
+    name_en: Solar PV
+    category: renewable
+    dispatchable: false
+    typical_unit_mw: 20
+    p_min_fraction: 0.0
+    ramp_up_fraction: 1.00        # weather-dependent
+    ramp_down_fraction: 1.00
+    min_up_time_h: 1
+    min_down_time_h: 1
+    startup_time_h: 0.0
+    shutdown_time_h: 0.0
+    startup_cost_per_mw: 0
+    shutdown_cost_per_mw: 0
+    fuel_cost_per_mwh: 0
+    no_load_cost_per_mw: 0.0
+    labor_cost_per_h: 100
+    heat_rate_kj_per_kwh: 0
+    co2_intensity_kg_per_mwh: 0
+    typical_lifetime_years: 25
+    typical_construction_years: 1
+    planned_outage_rate: 0.02
+    forced_outage_rate: 0.01
+    capacity_factor: 0.15
+
+  biomass:
+    name_ja: バイオマス
+    name_en: Biomass
+    category: renewable
+    dispatchable: true
+    typical_unit_mw: 50
+    p_min_fraction: 0.40
+    ramp_up_fraction: 0.03
+    ramp_down_fraction: 0.03
+    min_up_time_h: 6
+    min_down_time_h: 6
+    startup_time_h: 8
+    shutdown_time_h: 4
+    startup_cost_per_mw: 12
+    shutdown_cost_per_mw: 5
+    fuel_cost_per_mwh: 3000
+    no_load_cost_per_mw: 0.6
+    labor_cost_per_h: 1000
+    heat_rate_kj_per_kwh: 11000
+    co2_intensity_kg_per_mwh: 0   # carbon-neutral accounting
+    typical_lifetime_years: 25
+    typical_construction_years: 3
+    planned_outage_rate: 0.05
+    forced_outage_rate: 0.04
+    capacity_factor: 0.60
+
+  mixed:
+    name_ja: 混合燃料
+    name_en: Mixed Fuel
+    category: thermal
+    dispatchable: true
+    typical_unit_mw: 400
+    p_min_fraction: 0.30
+    ramp_up_fraction: 0.04
+    ramp_down_fraction: 0.04
+    min_up_time_h: 4
+    min_down_time_h: 4
+    startup_time_h: 6
+    shutdown_time_h: 3
+    startup_cost_per_mw: 10
+    shutdown_cost_per_mw: 3
+    fuel_cost_per_mwh: 5000
+    no_load_cost_per_mw: 0.8
+    labor_cost_per_h: 1500
+    heat_rate_kj_per_kwh: 8500
+    co2_intensity_kg_per_mwh: 500
+    typical_lifetime_years: 35
+    typical_construction_years: 4
+    planned_outage_rate: 0.06
+    forced_outage_rate: 0.04
+    capacity_factor: 0.50
+
+  unknown:
+    name_ja: 不明
+    name_en: Unknown
+    category: thermal
+    dispatchable: true
+    typical_unit_mw: 100
+    p_min_fraction: 0.30
+    ramp_up_fraction: 0.05
+    ramp_down_fraction: 0.05
+    min_up_time_h: 4
+    min_down_time_h: 4
+    startup_time_h: 6
+    shutdown_time_h: 3
+    startup_cost_per_mw: 10
+    shutdown_cost_per_mw: 3
+    fuel_cost_per_mwh: 5000
+    no_load_cost_per_mw: 0.8
+    labor_cost_per_h: 1000
+    heat_rate_kj_per_kwh: 8500
+    co2_intensity_kg_per_mwh: 500
+    typical_lifetime_years: 30
+    typical_construction_years: 4
+    planned_outage_rate: 0.06
+    forced_outage_rate: 0.04
+    capacity_factor: 0.50

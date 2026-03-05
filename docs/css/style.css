@@ -216,6 +216,20 @@ body {
     width: 18px; height: 3px; border-radius: 2px; display: inline-block;
 }
 
+/* ── Detail popup (generators & substations) ── */
+.detail-popup { font-size: 0.78rem; line-height: 1.6; max-width: 320px; }
+.detail-popup h3 { font-size: 0.92rem; margin-bottom: 4px; }
+.detail-popup .popup-meta { color: #888; font-size: 0.72rem; margin-bottom: 4px; }
+.detail-popup .popup-section { margin-top: 6px; }
+.detail-popup .popup-section-title {
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #888; margin-bottom: 2px;
+}
+.detail-popup table { width: 100%; border-collapse: collapse; }
+.detail-popup td { padding: 1px 4px; }
+.detail-popup td:first-child { color: #666; white-space: nowrap; }
+.detail-popup td:last-child { text-align: right; font-weight: 500; }
+
 /* ── Loading overlay (shared) ── */
 .pf-info {
     font-size: 0.78rem;

@@ -79,6 +79,10 @@ var rawSubData = null;
 var rawLineData = null;
 var rawPlantData = null;
 
+// Enriched data caches
+var enrichedSubData = null;    // substations.geojson
+var enrichedGenData = null;    // generators.geojson
+
 // Current state
 var selectedRegion = "all";  // "all" or region id
 var plantFilter = "utility";
@@ -215,12 +219,18 @@ function renderLayers() {
             },
             onEachFeature: function (feature, layer) {
                 var p = feature.properties;
-                var kv = p._voltage_kv ? p._voltage_kv + " kV" : "Unknown";
-                layer.bindPopup(
-                    "<b>" + (p._display_name || "Unnamed") + "</b><br>" +
-                    "Voltage: " + kv + "<br>" +
-                    "Region: " + (p._region_ja || "")
-                );
+                var coords = feature.geometry.coordinates;
+                var enriched = (coords && coords.length >= 2) ? lookupEnrichedSub(coords[0], coords[1]) : null;
+                if (enriched) {
+                    layer.bindPopup(buildSubPopup(enriched), { maxWidth: 350 });
+                } else {
+                    var kv = p._voltage_kv ? p._voltage_kv + " kV" : "Unknown";
+                    layer.bindPopup(
+                        "<b>" + (p._display_name || "Unnamed") + "</b><br>" +
+                        "Voltage: " + kv + "<br>" +
+                        "Region: " + (p._region_ja || "")
+                    );
+                }
             },
         }).addTo(map);
     }
@@ -245,13 +255,19 @@ function renderLayers() {
             },
             onEachFeature: function (feature, layer) {
                 var p = feature.properties;
-                var cap = p.capacity_mw ? p.capacity_mw + " MW" : "N/A";
-                layer.bindPopup(
-                    "<b>" + (p._display_name || "Unnamed") + "</b><br>" +
-                    "Fuel: " + (p.fuel_type || "unknown") + "<br>" +
-                    "Capacity: " + cap + "<br>" +
-                    "Region: " + (p._region_ja || "")
-                );
+                var coords = feature.geometry.coordinates;
+                var enriched = (coords && coords.length >= 2) ? lookupEnrichedGen(coords[0], coords[1]) : null;
+                if (enriched) {
+                    layer.bindPopup(buildGenPopup(enriched), { maxWidth: 350 });
+                } else {
+                    var cap = p.capacity_mw ? p.capacity_mw + " MW" : "N/A";
+                    layer.bindPopup(
+                        "<b>" + (p._display_name || "Unnamed") + "</b><br>" +
+                        "Fuel: " + (p.fuel_type || "unknown") + "<br>" +
+                        "Capacity: " + cap + "<br>" +
+                        "Region: " + (p._region_ja || "")
+                    );
+                }
             },
         }).addTo(map);
     }
@@ -387,6 +403,158 @@ function clearLayers() {
     if (plantLayer) { map.removeLayer(plantLayer); plantLayer = null; }
 }
 
+// ── Enriched data loaders ──
+
+async function loadEnrichedData() {
+    try {
+        var res = await fetch("./data/substations.geojson");
+        if (res.ok) enrichedSubData = await res.json();
+    } catch (e) { console.warn("No enriched substations:", e); }
+    try {
+        var res2 = await fetch("./data/generators.geojson");
+        if (res2.ok) enrichedGenData = await res2.json();
+    } catch (e) { console.warn("No enriched generators:", e); }
+}
+
+// ── Detail popup builders ──
+
+function fmtNum(n) {
+    if (n == null) return "-";
+    if (typeof n === "number" && n >= 1000) return n.toLocaleString();
+    return String(n);
+}
+
+function buildSubPopup(p) {
+    var html = '<div class="detail-popup">';
+    html += '<h3>' + (p.name || p._display_name || "(unnamed)") + '</h3>';
+    var meta = [];
+    if (p.operator) meta.push(p.operator);
+    if (p.region_ja) meta.push(p.region_ja);
+    if (meta.length) html += '<div class="popup-meta">' + meta.join(" | ") + '</div>';
+
+    // Electrical
+    html += '<div class="popup-section"><div class="popup-section-title">Electrical</div><table>';
+    var kvStr = p.voltage_kv != null ? p.voltage_kv + " kV" : "Unknown";
+    if (p.voltage_source && p.voltage_source !== "osm") {
+        kvStr += ' <span style="color:#e94560;font-size:0.68rem">(' + p.voltage_source.replace(/_/g," ") + ')</span>';
+    }
+    html += '<tr><td>Voltage</td><td>' + kvStr + '</td></tr>';
+    if (p.voltage_label) html += '<tr><td>Class</td><td>' + p.voltage_label + '</td></tr>';
+    if (p.frequency_hz) html += '<tr><td>Frequency</td><td>' + p.frequency_hz + ' Hz</td></tr>';
+    if (p.rating) html += '<tr><td>Rating</td><td>' + p.rating + '</td></tr>';
+    html += '</table></div>';
+
+    // Classification
+    html += '<div class="popup-section"><div class="popup-section-title">Classification</div><table>';
+    if (p.category_ja) html += '<tr><td>Type</td><td>' + p.category_ja + '</td></tr>';
+    if (p.substation_type) html += '<tr><td>OSM Type</td><td>' + p.substation_type + '</td></tr>';
+    if (p.gas_insulated != null) html += '<tr><td>GIS</td><td>' + (p.gas_insulated ? "Yes" : "No") + '</td></tr>';
+    html += '</table></div>';
+
+    // Operator
+    if (p.operator || p.operator_en) {
+        html += '<div class="popup-section"><div class="popup-section-title">Operator</div><table>';
+        if (p.operator) html += '<tr><td>Name</td><td>' + p.operator + '</td></tr>';
+        if (p.operator_en) html += '<tr><td>English</td><td>' + p.operator_en + '</td></tr>';
+        html += '</table></div>';
+    }
+
+    // Reference
+    if (p.ref || p.addr_city || p.website) {
+        html += '<div class="popup-section"><div class="popup-section-title">Reference</div><table>';
+        if (p.ref) html += '<tr><td>Ref</td><td>' + p.ref + '</td></tr>';
+        if (p.addr_city) html += '<tr><td>City</td><td>' + p.addr_city + '</td></tr>';
+        if (p.website) html += '<tr><td>Web</td><td><a href="' + p.website + '" target="_blank" style="color:#3498db">Link</a></td></tr>';
+        html += '</table></div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function buildGenPopup(p) {
+    var fuel = (p.fuel_type_ja || "") + " / " + (p.fuel_type_en || "");
+    var html = '<div class="detail-popup">';
+    html += '<h3>' + (p.name || "Unknown") + '</h3>';
+    var meta = [];
+    if (p.operator) meta.push(p.operator);
+    if (p.region) meta.push(p.region);
+    if (meta.length) html += '<div class="popup-meta">' + meta.join(" | ") + '</div>';
+
+    html += '<div class="popup-section"><div class="popup-section-title">Basic</div><table>';
+    html += '<tr><td>Fuel</td><td>' + fuel + '</td></tr>';
+    html += '<tr><td>Capacity</td><td>' + fmtNum(p.capacity_mw) + ' MW</td></tr>';
+    html += '<tr><td>P_min</td><td>' + fmtNum(p.p_min_mw) + ' MW</td></tr>';
+    html += '<tr><td>Dispatchable</td><td>' + (p.dispatchable ? "Yes" : "No") + '</td></tr>';
+    html += '</table></div>';
+
+    html += '<div class="popup-section"><div class="popup-section-title">Ramp & Timing</div><table>';
+    html += '<tr><td>Ramp Up</td><td>' + fmtNum(p.ramp_up_mw_per_h) + ' MW/h</td></tr>';
+    html += '<tr><td>Ramp Down</td><td>' + fmtNum(p.ramp_down_mw_per_h) + ' MW/h</td></tr>';
+    html += '<tr><td>Min Up Time</td><td>' + fmtNum(p.min_up_time_h) + ' h</td></tr>';
+    html += '<tr><td>Min Down Time</td><td>' + fmtNum(p.min_down_time_h) + ' h</td></tr>';
+    html += '<tr><td>Startup Time</td><td>' + fmtNum(p.startup_time_h) + ' h</td></tr>';
+    html += '<tr><td>Shutdown Time</td><td>' + fmtNum(p.shutdown_time_h) + ' h</td></tr>';
+    html += '</table></div>';
+
+    html += '<div class="popup-section"><div class="popup-section-title">Costs (JPY)</div><table>';
+    html += '<tr><td>Startup</td><td>' + fmtNum(p.startup_cost_jpy) + '</td></tr>';
+    html += '<tr><td>Shutdown</td><td>' + fmtNum(p.shutdown_cost_jpy) + '</td></tr>';
+    html += '<tr><td>Fuel</td><td>' + fmtNum(p.fuel_cost_per_mwh_jpy) + ' /MWh</td></tr>';
+    html += '</table></div>';
+
+    html += '<div class="popup-section"><div class="popup-section-title">Efficiency & Emissions</div><table>';
+    html += '<tr><td>Heat Rate</td><td>' + fmtNum(p.heat_rate_kj_per_kwh) + ' kJ/kWh</td></tr>';
+    html += '<tr><td>CO2</td><td>' + fmtNum(p.co2_intensity_kg_per_mwh) + ' kg/MWh</td></tr>';
+    if (p.capacity_factor != null) html += '<tr><td>Capacity Factor</td><td>' + (p.capacity_factor * 100).toFixed(0) + '%</td></tr>';
+    html += '</table></div>';
+
+    html += '<div class="popup-section"><div class="popup-section-title">Reliability & Lifecycle</div><table>';
+    if (p.planned_outage_rate != null) html += '<tr><td>Planned Outage</td><td>' + (p.planned_outage_rate * 100).toFixed(1) + '%</td></tr>';
+    if (p.forced_outage_rate != null) html += '<tr><td>Forced Outage</td><td>' + (p.forced_outage_rate * 100).toFixed(1) + '%</td></tr>';
+    html += '<tr><td>Lifetime</td><td>' + fmtNum(p.typical_lifetime_years) + ' years</td></tr>';
+    html += '<tr><td>Construction</td><td>' + fmtNum(p.typical_construction_years) + ' years</td></tr>';
+    html += '</table></div>';
+
+    html += '</div>';
+    return html;
+}
+
+// ── Enriched data lookup by coordinates ──
+
+var _enrichedSubIndex = null;
+var _enrichedGenIndex = null;
+
+function buildSpatialIndex(geojson) {
+    if (!geojson || !geojson.features) return {};
+    var idx = {};
+    for (var i = 0; i < geojson.features.length; i++) {
+        var f = geojson.features[i];
+        var c = f.geometry.coordinates;
+        // Key: rounded lon,lat for fast lookup
+        var key = c[0].toFixed(4) + "," + c[1].toFixed(4);
+        idx[key] = f.properties;
+    }
+    return idx;
+}
+
+function lookupEnrichedSub(lon, lat) {
+    if (!_enrichedSubIndex && enrichedSubData) {
+        _enrichedSubIndex = buildSpatialIndex(enrichedSubData);
+    }
+    if (!_enrichedSubIndex) return null;
+    var key = lon.toFixed(4) + "," + lat.toFixed(4);
+    return _enrichedSubIndex[key] || null;
+}
+
+function lookupEnrichedGen(lon, lat) {
+    if (!_enrichedGenIndex && enrichedGenData) {
+        _enrichedGenIndex = buildSpatialIndex(enrichedGenData);
+    }
+    if (!_enrichedGenIndex) return null;
+    var key = lon.toFixed(4) + "," + lat.toFixed(4);
+    return _enrichedGenIndex[key] || null;
+}
+
 // ── Region list ──
 
 async function initRegionList() {
@@ -482,6 +650,8 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Load all data (275 kV+) by default
-    loadData(275);
+    // Load enriched data, then load map data
+    loadEnrichedData().then(function () {
+        loadData(275);
+    });
 });
