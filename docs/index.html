@@ -26,15 +26,15 @@
             <h2>Layers</h2>
             <div class="layer-toggles">
                 <label class="layer-toggle">
-                    <input type="checkbox" id="layer-lines" checked/>
+                    <input type="checkbox" class="layer-cb" data-layer="lines" checked/>
                     <span class="toggle-label">送電線 Lines</span>
                 </label>
                 <label class="layer-toggle">
-                    <input type="checkbox" id="layer-subs" checked/>
+                    <input type="checkbox" class="layer-cb" data-layer="subs" checked/>
                     <span class="toggle-label">変電所 Substations</span>
                 </label>
                 <label class="layer-toggle">
-                    <input type="checkbox" id="layer-plants" checked/>
+                    <input type="checkbox" class="layer-cb" data-layer="plants" checked/>
                     <span class="toggle-label">発電所 Plants</span>
                     <select id="plant-filter" class="inline-select">
                         <option value="utility" selected>Utility</option>
@@ -69,6 +69,23 @@
         <div class="section">
             <h2>Area Color Mode</h2>
             <p class="area-desc">送電線・変電所をエリア(電力会社管轄)ごとに色分けします。</p>
+        </div>
+        <div class="section">
+            <h2>Layers</h2>
+            <div class="layer-toggles">
+                <label class="layer-toggle">
+                    <input type="checkbox" class="layer-cb" data-layer="lines" checked/>
+                    <span class="toggle-label">送電線 Lines</span>
+                </label>
+                <label class="layer-toggle">
+                    <input type="checkbox" class="layer-cb" data-layer="subs" checked/>
+                    <span class="toggle-label">変電所 Substations</span>
+                </label>
+                <label class="layer-toggle">
+                    <input type="checkbox" class="layer-cb" data-layer="plants" checked/>
+                    <span class="toggle-label">発電所 Plants</span>
+                </label>
+            </div>
         </div>
         <div class="section">
             <h2>Regions</h2>

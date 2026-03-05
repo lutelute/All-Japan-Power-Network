@@ -851,20 +851,18 @@ document.addEventListener("DOMContentLoaded", function () {
     initTabs();
     initRegionList();
 
-    // Layer visibility checkboxes (shared across tabs)
-    function bindLayerCheckbox(id, key) {
-        var cb = document.getElementById(id);
-        if (cb) cb.addEventListener("change", function () {
+    // Layer visibility checkboxes (synced across tabs)
+    document.querySelectorAll(".layer-cb").forEach(function (cb) {
+        cb.addEventListener("change", function () {
+            var key = this.dataset.layer;
             layerVisible[key] = this.checked;
-            // Sync paired checkbox in other tab
-            var pair = document.querySelectorAll("#" + id);
-            pair.forEach(function (el) { el.checked = layerVisible[key]; });
+            // Sync all checkboxes with same data-layer
+            document.querySelectorAll('.layer-cb[data-layer="' + key + '"]').forEach(function (el) {
+                el.checked = layerVisible[key];
+            });
             renderLayers();
         });
-    }
-    bindLayerCheckbox("layer-lines", "lines");
-    bindLayerCheckbox("layer-subs", "subs");
-    bindLayerCheckbox("layer-plants", "plants");
+    });
 
     // Voltage filter
     var minKvSelect = document.getElementById("min-kv");
