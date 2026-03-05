@@ -63,8 +63,8 @@ DEMAND_SHAPE = np.array([
 # Fuel type cost mapping (¥/MWh)
 FUEL_COST = {
     "coal": 4500, "gas": 7000, "lng": 7000, "oil": 9000,
-    "nuclear": 1500, "hydro": 0, "wind": 0, "solar": 0,
-    "biomass": 3000, "geothermal": 0, "waste": 5000,
+    "nuclear": 1500, "hydro": 0, "pumped_hydro": 0, "wind": 0, "solar": 0,
+    "biomass": 3000, "geothermal": 0, "waste": 5000, "battery": 0,
 }
 
 # Normalize OSM fuel types to model fuel types
@@ -72,7 +72,35 @@ FUEL_MAP = {
     "coal": "coal", "gas": "lng", "lng": "lng", "oil": "oil",
     "nuclear": "nuclear", "hydro": "hydro", "wind": "wind",
     "solar": "solar", "biomass": "biomass", "geothermal": "geothermal",
-    "waste": "biomass",
+    "waste": "biomass", "battery": "pumped_hydro",
+}
+
+# Known pumped-storage hydro plants (主要揚水発電所)
+# MWh estimated as ~5h discharge at rated capacity where public data unavailable
+PUMPED_STORAGE_PLANTS = {
+    "京極発電所": 4000,
+    "沼原発電所": 2700,
+    "塩原発電所": 4500,
+    "今市発電所": 5250,
+    "玉原発電所": 6000,
+    "城山水力発電所": 1250,
+    "神流川水力発電所": 6580,
+    "葛野川地下発電所": 8000,
+    "奥清津発電所": 8000,
+    "安曇水力発電所": 3115,
+    "水殿水力発電所": 1225,
+    "長野水力発電所": 1100,
+    "奥吉野発電所": 6030,
+    "喜撰山発電所": 2330,
+    "大平水力発電所": 2500,
+    "天山水力発電所": 3000,
+    "小丸川水力発電所": 6000,
+}
+
+# Battery storage (蓄電池) — capacity in MWh
+BATTERY_PLANTS = {
+    "西仙台変電所周波数変動対策蓄電池システム実証事業": 40,   # 40 MW × 1h
+    "豊前蓄電池変電所": 302,                              # 50.4 MW × 6h
 }
 
 
@@ -98,7 +126,41 @@ def load_generators_from_geojson(region):
         cost = FUEL_COST.get(raw_fuel, 5000)
         osm_id = props.get("osm_id", i)
 
-        is_renewable = fuel in ("hydro", "wind", "solar", "geothermal")
+        # Detect pumped-storage hydro by plant name
+        is_pumped = name in PUMPED_STORAGE_PLANTS
+        is_battery = name in BATTERY_PLANTS
+        if is_pumped:
+            fuel = "pumped_hydro"
+            cost = FUEL_COST["pumped_hydro"]
+        if is_battery:
+            fuel = "pumped_hydro"
+            cost = 0
+
+        is_renewable = fuel in ("hydro", "pumped_hydro", "wind", "solar", "geothermal")
+
+        # Storage parameters
+        storage_kwds = {}
+        if is_pumped:
+            storage_mwh = PUMPED_STORAGE_PLANTS[name]
+            storage_kwds = dict(
+                storage_capacity_mwh=storage_mwh,
+                charge_rate_mw=cap,
+                discharge_rate_mw=cap,
+                charge_efficiency=0.85,
+                discharge_efficiency=0.90,
+                initial_soc_fraction=0.5,
+            )
+        elif is_battery:
+            storage_mwh = BATTERY_PLANTS[name]
+            storage_kwds = dict(
+                storage_capacity_mwh=storage_mwh,
+                charge_rate_mw=cap,
+                discharge_rate_mw=cap,
+                charge_efficiency=0.92,
+                discharge_efficiency=0.95,
+                initial_soc_fraction=0.5,
+            )
+
         gen = Generator(
             id=f"{region}_gen_{osm_id}",
             name=name,
@@ -112,6 +174,7 @@ def load_generators_from_geojson(region):
             fuel_cost_per_mwh=cost,
             no_load_cost=0 if fuel in ("wind", "solar") else 500,
             labor_cost_per_h=300,
+            **storage_kwds,
         )
         generators.append(gen)
 
