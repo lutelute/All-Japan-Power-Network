@@ -269,8 +269,20 @@ class RegionalDecomposer(Decomposer):
         Returns:
             One UCParameters per region with proportional demand.
             Returns ``[params]`` if all generators share the same
-            region or the generator list is empty.
+            region, the generator list is empty, or interconnections
+            are present (national MILP fallback).
         """
+        # When interconnections are present, regional decomposition would
+        # break the inter-region coupling constraints.  Fall back to a
+        # single national MILP so that nodal balance and transmission
+        # capacity constraints are handled correctly.
+        if params.interconnections:
+            logger.info(
+                "RegionalDecomposer: Interconnections present: bypassing "
+                "regional decomposition for national MILP"
+            )
+            return [params]
+
         if not params.generators:
             logger.warning("RegionalDecomposer: no generators to partition")
             return []
