@@ -6,6 +6,7 @@
  * - Region filtering: click a region to show only its features
  * - Voltage tier files (275kv, 154kv, all) + client-side filter
  * - Plant category filter (utility / +IPP / all)
+ * - Color modes: voltage class / region area
  */
 
 // Voltage color scheme
@@ -21,6 +22,30 @@ const VOLTAGE_COLORS = {
     66:  "#8c564b",
     0:   "#cccccc",
 };
+
+// Region color scheme
+const REGION_COLORS = {
+    hokkaido: "#e6194b",
+    tohoku:   "#3cb44b",
+    tokyo:    "#4363d8",
+    chubu:    "#f58231",
+    hokuriku: "#911eb4",
+    kansai:   "#42d4f4",
+    chugoku:  "#f032e6",
+    shikoku:  "#bfef45",
+    kyushu:   "#fabebe",
+    okinawa:  "#469990",
+};
+const REGION_NAMES_JA = {
+    hokkaido: "\u5317\u6d77\u9053", tohoku: "\u6771\u5317", tokyo: "\u6771\u4eac",
+    chubu: "\u4e2d\u90e8", hokuriku: "\u5317\u9678", kansai: "\u95a2\u897f",
+    chugoku: "\u4e2d\u56fd", shikoku: "\u56db\u56fd", kyushu: "\u4e5d\u5dde",
+    okinawa: "\u6c96\u7e04",
+};
+const REGION_ORDER = [
+    "hokkaido","tohoku","tokyo","chubu","hokuriku",
+    "kansai","chugoku","shikoku","kyushu","okinawa",
+];
 
 function voltageKvToBracket(kv) {
     if (kv >= 500) return 500;
@@ -72,6 +97,7 @@ var map;
 var substationLayer = null;
 var lineLayer = null;
 var plantLayer = null;
+var legendControl = null;
 var regionsData = [];
 
 // Raw cached GeoJSON (before region filter)
@@ -80,12 +106,13 @@ var rawLineData = null;
 var rawPlantData = null;
 
 // Enriched data caches
-var enrichedSubData = null;    // substations.geojson
-var enrichedGenData = null;    // generators.geojson
+var enrichedSubData = null;
+var enrichedGenData = null;
 
 // Current state
-var selectedRegion = "all";  // "all" or region id
+var selectedRegion = "all";
 var plantFilter = "utility";
+var colorMode = "voltage"; // "voltage" or "region"
 var layerVisible = { lines: true, subs: true, plants: true };
 
 function initMap() {
@@ -104,38 +131,57 @@ function initMap() {
     map.createPane("substationPane").style.zIndex = 450;
     map.createPane("plantPane").style.zIndex = 460;
 
-    addVoltageLegend();
+    updateLegend();
 }
 
-function addVoltageLegend() {
-    var legend = L.control({ position: "bottomright" });
-    legend.onAdd = function () {
+// ── Legend ──
+
+function updateLegend() {
+    if (legendControl) { map.removeControl(legendControl); legendControl = null; }
+
+    legendControl = L.control({ position: "bottomright" });
+    legendControl.onAdd = function () {
         var div = L.DomUtil.create("div", "legend");
-        div.innerHTML = "<h4>Voltage Class</h4>";
-        var voltages = [500, 275, 220, 187, 154, 132, 110, 77, 66];
-        for (var i = 0; i < voltages.length; i++) {
-            var kv = voltages[i];
-            div.innerHTML +=
-                '<div class="legend-item">' +
-                '<span class="legend-color" style="background:' + VOLTAGE_COLORS[kv] + '"></span>' +
-                kv + ' kV</div>';
+
+        if (colorMode === "region") {
+            div.innerHTML = "<h4>Region</h4>";
+            for (var i = 0; i < REGION_ORDER.length; i++) {
+                var rid = REGION_ORDER[i];
+                div.innerHTML +=
+                    '<div class="legend-item">' +
+                    '<span class="legend-color" style="background:' + REGION_COLORS[rid] + '"></span>' +
+                    REGION_NAMES_JA[rid] + '</div>';
+            }
+        } else {
+            div.innerHTML = "<h4>Voltage Class</h4>";
+            var voltages = [500, 275, 220, 187, 154, 132, 110, 77, 66];
+            for (var j = 0; j < voltages.length; j++) {
+                var kv = voltages[j];
+                div.innerHTML +=
+                    '<div class="legend-item">' +
+                    '<span class="legend-color" style="background:' + VOLTAGE_COLORS[kv] + '"></span>' +
+                    kv + ' kV</div>';
+            }
         }
+
+        // Plants legend (always shown)
         div.innerHTML += "<h4 style='margin-top:8px'>Power Plants</h4>";
         var fuelEntries = [
             ["nuclear","Nuclear"],["coal","Coal"],["gas","Gas"],["oil","Oil"],
             ["hydro","Hydro"],["wind","Wind"],["solar","Solar"],
             ["geothermal","Geothermal"],["biomass","Biomass"]
         ];
-        for (var j = 0; j < fuelEntries.length; j++) {
-            var key = fuelEntries[j][0], label = fuelEntries[j][1];
+        for (var k = 0; k < fuelEntries.length; k++) {
+            var fkey = fuelEntries[k][0], flabel = fuelEntries[k][1];
             div.innerHTML +=
                 '<div class="legend-item">' +
-                '<span class="legend-color" style="background:' + FUEL_COLORS[key] + ';border-radius:50%"></span>' +
-                label + '</div>';
+                '<span class="legend-color" style="background:' + FUEL_COLORS[fkey] +
+                ';height:6px;border-radius:50%"></span>' +
+                flabel + '</div>';
         }
         return div;
     };
-    legend.addTo(map);
+    legendControl.addTo(map);
 }
 
 // ── Tab switching ──
@@ -149,6 +195,14 @@ function initTabs() {
             this.classList.add("active");
             var panel = document.getElementById(tabId);
             if (panel) panel.classList.add("active");
+
+            // Switch color mode based on tab
+            var newMode = (tabId === "tab-area") ? "region" : "voltage";
+            if (newMode !== colorMode) {
+                colorMode = newMode;
+                updateLegend();
+                renderLayers();
+            }
         });
     });
 }
@@ -172,6 +226,49 @@ function filterByRegion(geojson, region) {
     return { type: "FeatureCollection", features: filtered };
 }
 
+// ── Color helpers ──
+
+function lineColor(feature) {
+    if (colorMode === "region") {
+        return REGION_COLORS[feature.properties._region] || "#cccccc";
+    }
+    return voltageColor(feature.properties._voltage_kv || 0);
+}
+
+function subColor(feature) {
+    if (colorMode === "region") {
+        return REGION_COLORS[feature.properties._region] || "#cccccc";
+    }
+    return voltageColor(feature.properties._voltage_kv || 0);
+}
+
+// ── Plant marker (double-circle SVG via divIcon) ──
+
+function plantMarker(latlng, fuel, mw) {
+    var color = FUEL_COLORS[fuel] || FUEL_COLORS.unknown;
+    var size = mw >= 1000 ? 18 : mw >= 100 ? 14 : mw > 0 ? 11 : 9;
+    var half = size / 2;
+    var r1 = half - 1;
+    var r2 = r1 * 0.5;
+    var svg =
+        '<svg width="' + size + '" height="' + size + '" xmlns="http://www.w3.org/2000/svg">' +
+        '<circle cx="' + half + '" cy="' + half + '" r="' + r1 +
+            '" fill="' + color + '" stroke="#000" stroke-width="1.2" opacity="0.9"/>' +
+        '<circle cx="' + half + '" cy="' + half + '" r="' + r2 +
+            '" fill="none" stroke="#000" stroke-width="1" opacity="0.7"/>' +
+        '</svg>';
+    return L.marker(latlng, {
+        pane: "plantPane",
+        interactive: true,
+        icon: L.divIcon({
+            html: svg,
+            className: "",
+            iconSize: [size, size],
+            iconAnchor: [half, half],
+        }),
+    });
+}
+
 // ── Layer rendering ──
 
 function renderLayers() {
@@ -190,7 +287,7 @@ function renderLayers() {
                 style: function (feature) {
                     var kv = feature.properties._voltage_kv || 0;
                     return {
-                        color: voltageColor(kv),
+                        color: lineColor(feature),
                         weight: voltageLineWeight(kv),
                         opacity: 0.7,
                     };
@@ -222,13 +319,13 @@ function renderLayers() {
                 pointToLayer: function (feature, latlng) {
                     var kv = feature.properties._voltage_kv || 0;
                     var bracket = voltageKvToBracket(kv);
-                    var radius = bracket >= 500 ? 7 : bracket >= 275 ? 6 : 5;
+                    var radius = bracket >= 500 ? 5 : bracket >= 275 ? 4 : 3;
                     return L.circleMarker(latlng, {
                         pane: "substationPane",
                         radius: radius,
-                        fillColor: voltageColor(kv),
+                        fillColor: subColor(feature),
                         color: "#fff",
-                        weight: 1,
+                        weight: 0.8,
                         fillOpacity: 0.9,
                     });
                 },
@@ -250,30 +347,19 @@ function renderLayers() {
                     } catch (e) { console.warn("Sub popup error:", e); }
                 },
             }).addTo(map);
-            console.log("Substations rendered:", substationLayer.getLayers().length, "markers from", subPoints.features.length, "features");
         } catch (e) { console.error("Substations render error:", e); }
     }
 
-    // Plants
+    // Plants (double-circle markers)
     if (layerVisible.plants && rawPlantData) {
         try {
             var plantData = filterByRegion(rawPlantData, selectedRegion);
             plantLayer = L.geoJSON(plantData, {
-                pane: "plantPane",
                 pointToLayer: function (feature, latlng) {
                     var p = feature.properties;
                     var fuel = p.fuel_type || "unknown";
-                    var color = FUEL_COLORS[fuel] || FUEL_COLORS.unknown;
                     var mw = p.capacity_mw || 0;
-                    var radius = mw >= 1000 ? 7 : mw >= 100 ? 5 : mw > 0 ? 4 : 3;
-                    return L.circleMarker(latlng, {
-                        pane: "plantPane",
-                        radius: radius,
-                        fillColor: color,
-                        color: "#000",
-                        weight: 1,
-                        fillOpacity: 0.85,
-                    });
+                    return plantMarker(latlng, fuel, mw);
                 },
                 onEachFeature: function (feature, layer) {
                     try {
@@ -313,8 +399,9 @@ function updateStatus() {
 
     var minKv = parseFloat((document.getElementById("min-kv") || {}).value || 275);
     var kvLabel = minKv > 0 ? " [" + minKv + " kV+]" : "";
+    var modeLabel = colorMode === "region" ? " [Area]" : "";
 
-    setStatus(regionLabel + kvLabel + ": " + subCount + " subs, " + lineCount + " lines, " + plantCount + " plants");
+    setStatus(regionLabel + kvLabel + modeLabel + ": " + subCount + " subs, " + lineCount + " lines, " + plantCount + " plants");
 }
 
 // ── Data loading ──
@@ -412,7 +499,9 @@ function zoomToRegion(region) {
 
 function selectRegion(region) {
     selectedRegion = region || "all";
-    setActiveRegionBtn(region);
+    // Update active button in both region lists
+    setActiveRegionBtn(region, "#region-list");
+    setActiveRegionBtn(region, "#area-region-list");
     renderLayers();
 
     if (selectedRegion === "all") {
@@ -457,7 +546,6 @@ function buildSubPopup(p) {
     if (p.region_ja) meta.push(p.region_ja);
     if (meta.length) html += '<div class="popup-meta">' + meta.join(" | ") + '</div>';
 
-    // Electrical
     html += '<div class="popup-section"><div class="popup-section-title">Electrical</div><table>';
     var kvStr = p.voltage_kv != null ? p.voltage_kv + " kV" : "Unknown";
     if (p.voltage_source && p.voltage_source !== "osm") {
@@ -469,14 +557,12 @@ function buildSubPopup(p) {
     if (p.rating) html += '<tr><td>Rating</td><td>' + p.rating + '</td></tr>';
     html += '</table></div>';
 
-    // Classification
     html += '<div class="popup-section"><div class="popup-section-title">Classification</div><table>';
     if (p.category_ja) html += '<tr><td>Type</td><td>' + p.category_ja + '</td></tr>';
     if (p.substation_type) html += '<tr><td>OSM Type</td><td>' + p.substation_type + '</td></tr>';
     if (p.gas_insulated != null) html += '<tr><td>GIS</td><td>' + (p.gas_insulated ? "Yes" : "No") + '</td></tr>';
     html += '</table></div>';
 
-    // Operator
     if (p.operator || p.operator_en) {
         html += '<div class="popup-section"><div class="popup-section-title">Operator</div><table>';
         if (p.operator) html += '<tr><td>Name</td><td>' + p.operator + '</td></tr>';
@@ -484,7 +570,6 @@ function buildSubPopup(p) {
         html += '</table></div>';
     }
 
-    // Reference
     if (p.ref || p.addr_city || p.website) {
         html += '<div class="popup-section"><div class="popup-section-title">Reference</div><table>';
         if (p.ref) html += '<tr><td>Ref</td><td>' + p.ref + '</td></tr>';
@@ -583,46 +668,55 @@ function lookupEnrichedGen(lon, lat) {
 
 // ── Region list ──
 
+function buildRegionList(containerId) {
+    var list = document.getElementById(containerId);
+    if (!list || !regionsData.length) return;
+
+    list.innerHTML = "";
+
+    // "All Regions" button
+    var allBtn = document.createElement("button");
+    allBtn.className = "region-btn active";
+    allBtn.innerHTML = '<span>All Regions (\u5168\u56fd)</span><span class="count"></span>';
+    allBtn.onclick = function () { selectRegion(null); };
+    list.appendChild(allBtn);
+
+    // Individual regions
+    for (var i = 0; i < regionsData.length; i++) {
+        (function (r) {
+            var btn = document.createElement("button");
+            btn.className = "region-btn";
+            btn.dataset.region = r.id;
+            var colorDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+                (REGION_COLORS[r.id] || "#999") + ';margin-right:5px;vertical-align:middle"></span>';
+            btn.innerHTML =
+                "<span>" + colorDot + r.name_en + " (" + r.name_ja + ")</span>" +
+                '<span class="count">' + (r.substations + r.lines) + "</span>";
+            btn.onclick = function () { selectRegion(r.id); };
+            list.appendChild(btn);
+        })(regionsData[i]);
+    }
+}
+
 async function initRegionList() {
     try {
         var res = await fetch("./data/regions.json");
         if (!res.ok) return;
         regionsData = await res.json();
-
-        var list = document.getElementById("region-list");
-        if (!list) return;
-
-        // "All Regions" button
-        var allBtn = document.createElement("button");
-        allBtn.className = "region-btn active";
-        allBtn.innerHTML = '<span>All Regions (\u5168\u56fd)</span><span class="count"></span>';
-        allBtn.onclick = function () { selectRegion(null); };
-        list.appendChild(allBtn);
-
-        // Individual regions
-        for (var i = 0; i < regionsData.length; i++) {
-            (function (r) {
-                var btn = document.createElement("button");
-                btn.className = "region-btn";
-                btn.dataset.region = r.id;
-                btn.innerHTML =
-                    "<span>" + r.name_en + " (" + r.name_ja + ")</span>" +
-                    '<span class="count">' + (r.substations + r.lines) + "</span>";
-                btn.onclick = function () { selectRegion(r.id); };
-                list.appendChild(btn);
-            })(regionsData[i]);
-        }
+        buildRegionList("region-list");
+        buildRegionList("area-region-list");
     } catch (err) {
         console.error("Failed to load regions:", err);
     }
 }
 
-function setActiveRegionBtn(region) {
-    document.querySelectorAll("#region-list .region-btn").forEach(function (btn) {
+function setActiveRegionBtn(region, containerSelector) {
+    var container = containerSelector || "#region-list";
+    document.querySelectorAll(container + " .region-btn").forEach(function (btn) {
         btn.classList.toggle("active", btn.dataset.region === region);
     });
     if (!region) {
-        var first = document.querySelector("#region-list .region-btn:first-child");
+        var first = document.querySelector(container + " .region-btn:first-child");
         if (first) first.classList.add("active");
     }
 }
@@ -639,7 +733,6 @@ function setStatus(msg) {
 function geojsonToCSV(geojson, columns) {
     if (!geojson || !geojson.features || !geojson.features.length) return null;
 
-    // Auto-detect columns if not specified
     if (!columns) {
         var keySet = {};
         for (var i = 0; i < Math.min(geojson.features.length, 50); i++) {
@@ -648,7 +741,6 @@ function geojsonToCSV(geojson, columns) {
                 if (k.charAt(0) !== "_") keySet[k] = true;
             }
         }
-        // Add lat/lon
         keySet["latitude"] = true;
         keySet["longitude"] = true;
         columns = Object.keys(keySet).sort();
@@ -669,7 +761,6 @@ function geojsonToCSV(geojson, columns) {
 
             if (val == null) val = "";
             val = String(val);
-            // Escape CSV: quote if contains comma, newline, or quote
             if (val.indexOf(",") >= 0 || val.indexOf("\n") >= 0 || val.indexOf('"') >= 0) {
                 val = '"' + val.replace(/"/g, '""') + '"';
             }
@@ -681,7 +772,7 @@ function geojsonToCSV(geojson, columns) {
 }
 
 function downloadCSV(csv, filename) {
-    var bom = "\uFEFF"; // UTF-8 BOM for Excel compatibility
+    var bom = "\uFEFF";
     var blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -712,7 +803,7 @@ var SUB_CSV_COLUMNS = [
     "latitude", "longitude",
 ];
 
-var LINE_CSV_COLUMNS = null; // auto-detect
+var LINE_CSV_COLUMNS = null;
 
 async function downloadGeneratorsCSV() {
     var data = enrichedGenData;
@@ -741,7 +832,6 @@ async function downloadSubstationsCSV() {
 }
 
 async function downloadLinesCSV() {
-    // Use currently loaded line data, or fetch all
     var data = rawLineData;
     if (!data) {
         try {
@@ -761,23 +851,20 @@ document.addEventListener("DOMContentLoaded", function () {
     initTabs();
     initRegionList();
 
-    // Layer visibility checkboxes
-    var cbLines = document.getElementById("layer-lines");
-    var cbSubs = document.getElementById("layer-subs");
-    var cbPlants = document.getElementById("layer-plants");
-
-    if (cbLines) cbLines.addEventListener("change", function () {
-        layerVisible.lines = this.checked;
-        renderLayers();
-    });
-    if (cbSubs) cbSubs.addEventListener("change", function () {
-        layerVisible.subs = this.checked;
-        renderLayers();
-    });
-    if (cbPlants) cbPlants.addEventListener("change", function () {
-        layerVisible.plants = this.checked;
-        renderLayers();
-    });
+    // Layer visibility checkboxes (shared across tabs)
+    function bindLayerCheckbox(id, key) {
+        var cb = document.getElementById(id);
+        if (cb) cb.addEventListener("change", function () {
+            layerVisible[key] = this.checked;
+            // Sync paired checkbox in other tab
+            var pair = document.querySelectorAll("#" + id);
+            pair.forEach(function (el) { el.checked = layerVisible[key]; });
+            renderLayers();
+        });
+    }
+    bindLayerCheckbox("layer-lines", "lines");
+    bindLayerCheckbox("layer-subs", "subs");
+    bindLayerCheckbox("layer-plants", "plants");
 
     // Voltage filter
     var minKvSelect = document.getElementById("min-kv");

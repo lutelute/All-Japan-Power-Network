@@ -240,10 +240,24 @@ body {
 .detail-popup td:first-child { color: #666; white-space: nowrap; }
 .detail-popup td:last-child { text-align: right; font-weight: 500; }
 
+/* ── Area tab ── */
+.area-desc {
+    font-size: 0.78rem;
+    color: #bbb;
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+
 /* ── Loading overlay (shared) ── */
 .pf-info {
     font-size: 0.78rem;
     color: #bbb;
     padding: 6px 0;
     line-height: 1.4;
+}
+
+/* ── Plant divIcon reset ── */
+.leaflet-marker-icon.leaflet-div-icon {
+    background: none;
+    border: none;
 }
