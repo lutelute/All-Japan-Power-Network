@@ -31,18 +31,18 @@ const GIF_FPS = 12;
 const FRAME_DELAY_MS = 80;
 
 const REGIONS = [
-    { id: null,        name: "All Japan" },
-    { id: "hokkaido",  name: "Hokkaido" },
-    { id: "tohoku",    name: "Tohoku" },
-    { id: "tokyo",     name: "Tokyo" },
-    { id: "chubu",     name: "Chubu" },
-    { id: "hokuriku",  name: "Hokuriku" },
-    { id: "kansai",    name: "Kansai" },
-    { id: "chugoku",   name: "Chugoku" },
-    { id: "shikoku",   name: "Shikoku" },
-    { id: "kyushu",    name: "Kyushu" },
-    { id: "okinawa",   name: "Okinawa" },
-    { id: null,        name: "All Japan" }, // return to all-Japan at the end
+    { id: null,        name: "All Japan (open)",  hold: 30 },
+    { id: "hokkaido",  name: "Hokkaido",          hold: 18 },
+    { id: "tohoku",    name: "Tohoku",            hold: 18 },
+    { id: "tokyo",     name: "Tokyo",             hold: 18 },
+    { id: "chubu",     name: "Chubu",             hold: 18 },
+    { id: "hokuriku",  name: "Hokuriku",          hold: 18 },
+    { id: "kansai",    name: "Kansai",            hold: 18 },
+    { id: "chugoku",   name: "Chugoku",           hold: 18 },
+    { id: "shikoku",   name: "Shikoku",           hold: 18 },
+    { id: "kyushu",    name: "Kyushu",            hold: 18 },
+    { id: "okinawa",   name: "Okinawa",           hold: 18 },
+    { id: null,        name: "All Japan (close)",  hold: 30 },
 ];
 
 function ensureDir(dir) {
@@ -111,10 +111,18 @@ async function main() {
     for (const region of REGIONS) {
         console.log(`  ${region.name}...`);
 
-        // Navigate to region
-        await page.evaluate((rid) => {
-            if (typeof selectRegion === "function") selectRegion(rid);
-        }, region.id);
+        if (region.id) {
+            // Zoom into region
+            await page.evaluate((rid) => {
+                if (typeof selectRegion === "function") selectRegion(rid);
+            }, region.id);
+        } else {
+            // All-Japan: zoom out to show Hokkaido–Okinawa fully
+            await page.evaluate(() => {
+                if (typeof selectRegion === "function") selectRegion(null);
+                if (typeof map !== "undefined") map.setView([35.5, 136.0], 5);
+            });
+        }
 
         // Capture zoom animation frames
         for (let i = 0; i < 10; i++) {
@@ -122,11 +130,11 @@ async function main() {
             await capture();
         }
 
-        // Wait for tiles
-        await sleep(1500);
+        // Wait for tiles to load
+        await sleep(2000);
 
         // Hold frames on final view
-        for (let i = 0; i < 18; i++) {
+        for (let i = 0; i < region.hold; i++) {
             await capture();
             await sleep(FRAME_DELAY_MS);
         }
