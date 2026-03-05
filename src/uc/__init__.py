@@ -7,6 +7,8 @@ generator unit commitment optimisation over configurable time horizons.
 from src.uc.models import (
     DemandProfile,
     GeneratorSchedule,
+    Interconnection,
+    InterconnectionFlow,
     TimeHorizon,
     UCParameters,
     UCResult,
@@ -15,6 +17,8 @@ from src.uc.models import (
 __all__ = [
     "DemandProfile",
     "GeneratorSchedule",
+    "Interconnection",
+    "InterconnectionFlow",
     "TimeHorizon",
     "UCParameters",
     "UCResult",

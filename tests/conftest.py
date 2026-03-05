@@ -21,6 +21,7 @@ from src.model.substation import (
     VoltageClass,
 )
 from src.model.transmission_line import TransmissionLine
+from src.uc.models import Interconnection
 
 
 # ======================================================================
@@ -490,6 +491,34 @@ def make_storage_generator(
         initial_soc_fraction=initial_soc_fraction,
         min_terminal_soc_fraction=min_terminal_soc_fraction,
         **kwargs,
+    )
+
+
+# ======================================================================
+# Interconnection factory
+# ======================================================================
+
+
+def make_interconnection(
+    id: str = "ic_test_001",
+    name_en: str = "Test Interconnection",
+    from_region: str = "tokyo",
+    to_region: str = "chubu",
+    capacity_mw: float = 1000.0,
+    type: str = "AC",
+) -> Interconnection:
+    """Factory function for creating Interconnection instances in tests.
+
+    Provides sensible defaults for a Tokyo-Chubu AC interconnection
+    while allowing any field to be overridden.
+    """
+    return Interconnection(
+        id=id,
+        name_en=name_en,
+        from_region=from_region,
+        to_region=to_region,
+        capacity_mw=capacity_mw,
+        type=type,
     )
 
 
