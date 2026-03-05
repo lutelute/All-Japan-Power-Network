@@ -1,0 +1,105 @@
+# Unit Commitment (UC) Solver Configuration
+# Used by src/uc/solver.py to parameterize the MILP optimization
+# All costs are in arbitrary currency units (consistent across config)
+
+# Solver backend and performance settings
+# backend: "highs" (preferred, requires highspy) or "cbc" (PuLP built-in fallback)
+# time_limit_s: maximum wall-clock seconds before returning best feasible solution
+# mip_gap: relative optimality gap tolerance (0.01 = 1%)
+# msg_level: solver verbosity (0 = silent, 1 = summary, 2 = detailed)
+solver:
+  backend: highs
+  time_limit_s: 300
+  mip_gap: 0.01
+  msg_level: 0
+
+# Time horizon for the commitment schedule
+# num_periods: number of discrete time steps in the planning horizon
+# period_duration_h: duration of each period in hours
+# Example: 24 periods × 1.0 h = 24-hour day-ahead schedule
+time_horizon:
+  num_periods: 24
+  period_duration_h: 1.0
+
+# System-wide spinning reserve margin
+# Committed capacity must exceed demand by this fraction
+# reserve = demand * (1 + reserve_margin)
+reserve_margin: 0.05
+
+# Problem decomposition settings
+# strategy: how to partition the UC problem for large instances
+#   - none: solve the full problem in one pass
+#   - regional: partition generators by grid region (hokkaido, tohoku, etc.)
+#   - fuel_type: partition generators by fuel type (coal, lng, nuclear, etc.)
+#   - time_window: split the horizon into overlapping time chunks
+# max_subproblem_generators: threshold above which decomposition is recommended
+decomposition:
+  strategy: none
+  max_subproblem_generators: 500
+
+# Default values for missing generator UC attributes
+# Applied when XML data lacks optional UC fields (e.g., startup_cost not specified)
+# These represent reasonable estimates for a typical Japanese thermal unit
+defaults:
+  # Startup cost: one-time cost incurred when a generator transitions from off to on
+  startup_cost: 5000
+
+  # Shutdown cost: one-time cost incurred when a generator transitions from on to off
+  shutdown_cost: 2000
+
+  # Minimum up time: once started, generator must stay on for at least this many hours
+  min_up_time_h: 4
+
+  # Minimum down time: once stopped, generator must stay off for at least this many hours
+  min_down_time_h: 4
+
+  # Ramp rate limits (MW/h): maximum rate of power output change
+  # null = no ramp constraint (unlimited ramping)
+  ramp_up_mw_per_h: null
+  ramp_down_mw_per_h: null
+
+  # Fuel cost per MWh by fuel type
+  # Represents variable generation cost (fuel + variable O&M)
+  # Sources: typical Japanese electricity market estimates
+  fuel_cost_per_mwh:
+    coal: 4500
+    lng: 7000
+    oil: 9000
+    nuclear: 1500
+    hydro: 0
+    pumped_hydro: 2000
+    geothermal: 0
+    wind: 0
+    solar: 0
+    biomass: 3000
+    mixed: 5000
+    unknown: 5000
+
+  # Labor cost per hour: hourly staffing cost incurred while the unit is committed
+  labor_cost_per_h: 1000
+
+  # No-load cost: fixed hourly cost incurred while committed, independent of output
+  no_load_cost: 500
+
+  # Disaster risk score: 0.0 (no risk) to 1.0 (highest risk)
+  # Used for risk-aware scheduling prioritization
+  disaster_risk_score: 0.0
+
+  # Storage unit default parameters by technology type
+  # Applied when storage-specific attributes are missing from generator data
+  storage:
+    # Pumped hydro storage defaults
+    pumped_hydro:
+      charge_efficiency: 0.87
+      discharge_efficiency: 0.87
+      initial_soc_fraction: 0.5
+      min_terminal_soc_fraction: 0.3
+      storage_capacity_mwh: 6000
+
+    # Battery energy storage system (BESS) defaults
+    battery:
+      charge_efficiency: 0.92
+      discharge_efficiency: 0.92
+      initial_soc_fraction: 0.5
+      min_terminal_soc_fraction: 0.2
+      storage_capacity_mwh: 200

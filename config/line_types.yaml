@@ -1,0 +1,152 @@
+# Japan Power Grid - Transmission Line Type Parameters
+# Typical electrical parameters for Japanese transmission lines (per km)
+#
+# These are standard reference values used as defaults when exact
+# line-specific parameters are unavailable from the source data.
+#
+# Parameters:
+#   r_ohm_per_km  - Resistance (Ohm/km)
+#   x_ohm_per_km  - Reactance (Ohm/km)
+#   b_s_per_km    - Susceptance (Siemens/km) — engineering convention
+#   max_i_ka      - Maximum current rating (kA)
+#   conductor     - Typical conductor specification
+#
+# IMPORTANT: pandapower uses c_nf_per_km (capacitance in nF/km), NOT b_s_per_km.
+# Conversion: c_nf_per_km = b_s_per_km / (2 * pi * f_hz) * 1e9
+# This conversion is frequency-dependent (50 Hz east / 60 Hz west Japan)
+# and must be performed at runtime by src/converter/line_parameters.py.
+#
+# Source: Standard Japanese transmission line reference values
+# (OCCTO wide-area grid planning documents, TEPCO/KEPCO design standards)
+
+# Top-level keys are voltage classes in kV
+# Access: line_types[500], line_types[275], etc.
+
+500:
+  description: "500kV extra-high voltage backbone"
+  description_ja: "500kV 超高圧基幹送電線"
+  r_ohm_per_km: 0.012
+  x_ohm_per_km: 0.290
+  b_s_per_km: 4.1e-6
+  max_i_ka: 4.0
+  conductor: "ACSR 810mm2 x 4"
+  conductor_ja: "ACSR 810mm2 4導体"
+  circuits: 2
+  grid_class: "backbone"
+  kml_style: "extra_thick"
+  notes: "Main inter-regional backbone lines (基幹系統). Quad-bundle conductors."
+
+275:
+  description: "275kV high voltage trunk"
+  description_ja: "275kV 高圧幹線送電線"
+  r_ohm_per_km: 0.028
+  x_ohm_per_km: 0.325
+  b_s_per_km: 3.85e-6
+  max_i_ka: 2.0
+  conductor: "ACSR 410mm2 x 2"
+  conductor_ja: "ACSR 410mm2 2導体"
+  circuits: 2
+  grid_class: "backbone"
+  kml_style: "medium_thick"
+  notes: "Regional backbone and major supply lines (地内基幹). Twin-bundle conductors."
+
+154:
+  description: "154kV regional supply"
+  description_ja: "154kV 地域供給送電線"
+  r_ohm_per_km: 0.050
+  x_ohm_per_km: 0.380
+  b_s_per_km: 3.5e-6
+  max_i_ka: 1.0
+  conductor: "ACSR 330mm2"
+  conductor_ja: "ACSR 330mm2 単導体"
+  circuits: 2
+  grid_class: "regional"
+  kml_style: "thin"
+  notes: "Regional supply lines. Used in Tohoku, Tokyo, Chubu, Hokuriku, Kansai, Chugoku."
+
+66:
+  description: "66kV sub-transmission"
+  description_ja: "66kV 配電用変電所向け送電線"
+  r_ohm_per_km: 0.120
+  x_ohm_per_km: 0.400
+  b_s_per_km: 3.2e-6
+  max_i_ka: 0.6
+  conductor: "ACSR 160mm2"
+  conductor_ja: "ACSR 160mm2 単導体"
+  circuits: 1
+  grid_class: "sub_transmission"
+  kml_style: "thin"
+  notes: "Sub-transmission connecting to distribution substations. Widely used across all regions."
+
+# Additional voltage classes used in specific regions
+# These are less common but appear in certain regional grids
+
+220:
+  description: "220kV regional backbone (Chugoku, Kyushu)"
+  description_ja: "220kV 地域基幹送電線"
+  r_ohm_per_km: 0.032
+  x_ohm_per_km: 0.335
+  b_s_per_km: 3.75e-6
+  max_i_ka: 1.8
+  conductor: "ACSR 410mm2 x 2"
+  conductor_ja: "ACSR 410mm2 2導体"
+  circuits: 2
+  grid_class: "backbone"
+  kml_style: "medium_thick"
+  notes: "Used as Level 2 voltage in Kyushu (220kV) and lower level in Chugoku."
+
+187:
+  description: "187kV regional backbone (Hokkaido, Shikoku)"
+  description_ja: "187kV 地域基幹送電線"
+  r_ohm_per_km: 0.038
+  x_ohm_per_km: 0.350
+  b_s_per_km: 3.65e-6
+  max_i_ka: 1.5
+  conductor: "ACSR 330mm2 x 2"
+  conductor_ja: "ACSR 330mm2 2導体"
+  circuits: 2
+  grid_class: "backbone"
+  kml_style: "medium_thick"
+  notes: "Used as Level 2 voltage in Hokkaido and Shikoku."
+
+132:
+  description: "132kV backbone (Okinawa)"
+  description_ja: "132kV 基幹送電線 (沖縄)"
+  r_ohm_per_km: 0.045
+  x_ohm_per_km: 0.370
+  b_s_per_km: 3.55e-6
+  max_i_ka: 1.2
+  conductor: "ACSR 330mm2"
+  conductor_ja: "ACSR 330mm2 単導体"
+  circuits: 2
+  grid_class: "backbone"
+  kml_style: "medium_thick"
+  notes: "Top voltage level in Okinawa grid. Okinawa has no 500kV or 275kV lines."
+
+110:
+  description: "110kV regional supply (Chugoku, Shikoku, Kyushu)"
+  description_ja: "110kV 地域供給送電線"
+  r_ohm_per_km: 0.055
+  x_ohm_per_km: 0.385
+  b_s_per_km: 3.45e-6
+  max_i_ka: 0.9
+  conductor: "ACSR 240mm2"
+  conductor_ja: "ACSR 240mm2 単導体"
+  circuits: 2
+  grid_class: "regional"
+  kml_style: "thin"
+  notes: "Lower-level supply lines in western regions."
+
+77:
+  description: "77kV sub-transmission (Chubu, Hokuriku, Kansai)"
+  description_ja: "77kV 送電線"
+  r_ohm_per_km: 0.100
+  x_ohm_per_km: 0.395
+  b_s_per_km: 3.3e-6
+  max_i_ka: 0.7
+  conductor: "ACSR 200mm2"
+  conductor_ja: "ACSR 200mm2 単導体"
+  circuits: 1
+  grid_class: "sub_transmission"
+  kml_style: "thin"
+  notes: "Used in Chubu, Hokuriku, and Kansai as lower-level sub-transmission."

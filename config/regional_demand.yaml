@@ -1,0 +1,44 @@
+# OCCTO Regional Peak Demand Data (2023)
+# Source: Organization for Cross-regional Coordination of Transmission Operators
+# Used for synthetic load allocation in power flow analysis
+
+# Regional peak demand (MW) — OCCTO 2023 summer/winter peak values
+regional_peak_demand_mw:
+  hokkaido: 3600
+  tohoku: 13000
+  tokyo: 52000
+  chubu: 24000
+  hokuriku: 5200
+  kansai: 27000
+  chugoku: 10500
+  shikoku: 5500
+  kyushu: 15500
+  okinawa: 1600
+
+# Load factor: ratio of allocated demand to peak demand
+# Represents typical operating point (not extreme peak)
+load_factor: 0.85
+
+# Power factor for load allocation
+# cos(phi) = 0.95 → Q = P * tan(acos(0.95))
+power_factor: 0.95
+
+# Voltage-class weights for distributing demand across buses
+# Lower voltage levels carry proportionally more distribution load
+# Weights are normalized within each region
+voltage_weights:
+  500: 0.05
+  275: 0.15
+  220: 0.20
+  187: 0.25
+  154: 0.30
+  132: 0.35
+  110: 0.40
+  77: 0.45
+  66: 0.50
+  0: 0.50    # Default/unknown voltage
+
+# Generation scaling
+# Target generation = total_demand * (1 + reserve_margin)
+# ext_grid absorbs the residual mismatch
+reserve_margin: 0.05
