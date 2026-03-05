@@ -279,8 +279,9 @@
             "command": "PYTHONPATH=. python -c \"from src.powerflow.load_estimator import estimate_loads; from src.ac_powerflow.network_prep import prepare_network, extract_ybus; print('OK: modified modules import correctly')\"",
             "expected": "OK: modified modules import correctly"
           },
-          "status": "pending",
-          "notes": "load_estimator: Add skip_existing parameter to estimate_loads(). If True, buses with existing loads are skipped. network_prep: Add extract_ybus(net) convenience function that returns just the Ybus matrix (used by reconnector to validate)."
+          "status": "completed",
+          "notes": "load_estimator: Added skip_existing parameter to estimate_loads() with full propagation through _estimate_loads_national(), _allocate_bus_loads(). When True, buses with existing loads are skipped and target demand is reduced by existing load total. Added _get_buses_with_loads() helper. network_prep: Added extract_ybus(net) convenience function that populates _ppc via pp.runpp() and returns just the Ybus sparse CSC matrix for quick validation (e.g. reconnection mode non-singularity checks). All changes backward-compatible. Verification passes.",
+          "updated_at": "2026-03-05T13:05:00.000000+00:00"
         }
       ]
     },
@@ -560,7 +561,7 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T12:56:48.645Z",
+  "updated_at": "2026-03-05T13:00:37.944Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,

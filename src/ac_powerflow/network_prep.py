@@ -9,10 +9,14 @@ PYPOWER internal ordering (which may differ due to bus fusing).
 
 Usage::
 
-    from src.ac_powerflow.network_prep import prepare_network
+    from src.ac_powerflow.network_prep import prepare_network, extract_ybus
 
     data = prepare_network(net)
     print(data.Ybus.shape, data.ref, data.pv, data.pq)
+
+    # Quick Ybus extraction for validation (e.g. reconnection mode)
+    Ybus = extract_ybus(net)
+    print(Ybus.shape, Ybus.nnz)
 """
 
 from dataclasses import dataclass
@@ -130,6 +134,49 @@ def prepare_network(net: Any) -> NetworkData:
     logger.info("Network prepared for AC solvers: %s", data.summary)
 
     return data
+
+
+def extract_ybus(net: Any) -> sparse.csc_matrix:
+    """Extract the bus admittance matrix (Ybus) from a pandapower network.
+
+    Convenience wrapper that populates the internal PYPOWER structures
+    via ``pp.runpp()`` and returns just the Ybus matrix in sparse CSC
+    format.  This is useful for quick validation of network connectivity
+    (e.g. checking non-singularity after reconnection) without needing
+    the full :class:`NetworkData` returned by :func:`prepare_network`.
+
+    Note:
+        The returned Ybus uses PYPOWER internal bus ordering, which may
+        differ from pandapower bus DataFrame indices.  Do not use the
+        matrix row/column indices to index into ``net.bus`` directly.
+
+    Args:
+        net: A pandapower network with at least one ext_grid (slack bus),
+            buses, and branches.
+
+    Returns:
+        Sparse CSC bus admittance matrix.
+
+    Raises:
+        RuntimeError: If the internal ppc structure cannot be populated
+            or the Ybus matrix is unavailable.
+    """
+    _populate_ppc(net)
+
+    ppc = net._ppc
+    internal = ppc["internal"]
+
+    Ybus = internal["Ybus"]
+    if not isinstance(Ybus, sparse.csc_matrix):
+        Ybus = Ybus.tocsc()
+
+    logger.info(
+        "Extracted Ybus: shape=%s, nnz=%d",
+        Ybus.shape,
+        Ybus.nnz,
+    )
+
+    return Ybus
 
 
 def _populate_ppc(net: Any) -> None:

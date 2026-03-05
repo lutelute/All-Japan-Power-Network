@@ -13,7 +13,7 @@ Usage::
 """
 
 import math
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 
 import pandapower as pp
 import yaml
@@ -45,6 +45,7 @@ def estimate_loads(
     region: str,
     demand_config: Optional[Dict[str, Any]] = None,
     config_path: str = DEFAULT_DEMAND_CONFIG_PATH,
+    skip_existing: bool = False,
 ) -> float:
     """Distribute synthetic loads across all buses in the network.
 
@@ -55,12 +56,22 @@ def estimate_loads(
     For national (multi-region) models, the ``zone`` column on each bus
     is used to determine its region and allocate demand accordingly.
 
+    When *skip_existing* is ``True``, buses that already have at least
+    one load element attached are excluded from load allocation.  The
+    target demand is reduced by the existing load total so that the
+    sum of existing + new loads approximates the regional target.
+    This supports reconstruction workflows where some buses carry
+    real load data while others need synthetic loads.
+
     Args:
         net: pandapower network (modified in place).
         region: Region identifier (e.g. ``"shikoku"``).
         demand_config: Pre-loaded config dict.  If ``None``, loaded from
             *config_path*.
         config_path: Fallback path for loading config.
+        skip_existing: If ``True``, do not create loads on buses that
+            already have at least one load element.  Existing loads are
+            preserved and the allocation target is reduced accordingly.
 
     Returns:
         Total active power (MW) allocated across all buses.
@@ -79,6 +90,7 @@ def estimate_loads(
     if region == "national":
         return _estimate_loads_national(
             net, peak_demands, load_factor, tan_phi, voltage_weights,
+            skip_existing=skip_existing,
         )
 
     # Regional model: single region
@@ -91,18 +103,27 @@ def estimate_loads(
         return 0.0
 
     target_mw = peak_mw * load_factor
+
+    # Reduce target by existing loads when skipping
+    existing_mw = 0.0
+    if skip_existing and not net.load.empty:
+        existing_mw = float(net.load["p_mw"].sum())
+        target_mw = max(target_mw - existing_mw, 0.0)
+
     total_allocated = _allocate_bus_loads(
         net, target_mw, tan_phi, voltage_weights,
+        skip_existing=skip_existing,
     )
 
     logger.info(
-        "Allocated %.1f MW (%.1f MVAr) across %d buses for region '%s'",
+        "Allocated %.1f MW (%.1f MVAr) across %d buses for region '%s'"
+        + (" (skipped buses with existing loads)" if skip_existing else ""),
         total_allocated,
         total_allocated * tan_phi,
         len(net.bus),
         region,
     )
-    return total_allocated
+    return total_allocated + existing_mw
 
 
 def _estimate_loads_national(
@@ -111,11 +132,15 @@ def _estimate_loads_national(
     load_factor: float,
     tan_phi: float,
     voltage_weights: Dict,
+    skip_existing: bool = False,
 ) -> float:
     """Allocate loads for a national (multi-region) network.
 
     Uses the ``zone`` column on each bus to determine regional
     membership and applies per-region demand targets.
+
+    When *skip_existing* is ``True``, buses with existing loads are
+    excluded and the per-zone target is reduced accordingly.
     """
     total_allocated = 0.0
 
@@ -126,10 +151,21 @@ def _estimate_loads_national(
         )
         total_peak = sum(peak_demands.values())
         target_mw = total_peak * load_factor
+
+        # Reduce target by existing loads when skipping
+        existing_mw = 0.0
+        if skip_existing and not net.load.empty:
+            existing_mw = float(net.load["p_mw"].sum())
+            target_mw = max(target_mw - existing_mw, 0.0)
+
         total_allocated = _allocate_bus_loads(
             net, target_mw, tan_phi, voltage_weights,
+            skip_existing=skip_existing,
         )
-        return total_allocated
+        return total_allocated + existing_mw
+
+    # Identify buses with existing loads (for skip_existing)
+    buses_with_loads = _get_buses_with_loads(net) if skip_existing else set()
 
     # Group buses by zone
     for zone, group in net.bus.groupby("zone"):
@@ -139,6 +175,19 @@ def _estimate_loads_national(
 
         target_mw = peak_mw * load_factor
         bus_indices = group.index.tolist()
+
+        # Filter out buses with existing loads and adjust target
+        if skip_existing and buses_with_loads:
+            existing_zone_mw = 0.0
+            if not net.load.empty:
+                zone_loads = net.load[net.load["bus"].isin(bus_indices)]
+                existing_zone_mw = float(zone_loads["p_mw"].sum())
+            target_mw = max(target_mw - existing_zone_mw, 0.0)
+            bus_indices = [b for b in bus_indices if b not in buses_with_loads]
+            total_allocated += existing_zone_mw
+
+        if not bus_indices:
+            continue
 
         allocated = _allocate_bus_loads_subset(
             net, bus_indices, target_mw, tan_phi, voltage_weights,
@@ -158,9 +207,19 @@ def _allocate_bus_loads(
     target_mw: float,
     tan_phi: float,
     voltage_weights: Dict,
+    skip_existing: bool = False,
 ) -> float:
-    """Allocate *target_mw* across **all** buses in *net*."""
+    """Allocate *target_mw* across **all** (or eligible) buses in *net*.
+
+    When *skip_existing* is ``True``, buses that already have loads
+    attached are excluded from the allocation.
+    """
     bus_indices = net.bus.index.tolist()
+
+    if skip_existing:
+        buses_with_loads = _get_buses_with_loads(net)
+        bus_indices = [b for b in bus_indices if b not in buses_with_loads]
+
     return _allocate_bus_loads_subset(
         net, bus_indices, target_mw, tan_phi, voltage_weights,
     )
@@ -209,6 +268,20 @@ def _allocate_bus_loads_subset(
         total_allocated += p_mw
 
     return total_allocated
+
+
+def _get_buses_with_loads(net: Any) -> Set[int]:
+    """Return the set of bus indices that already have loads attached.
+
+    Args:
+        net: pandapower network.
+
+    Returns:
+        Set of bus indices with at least one load element.
+    """
+    if net.load.empty:
+        return set()
+    return set(net.load["bus"].unique())
 
 
 def _voltage_weight(vn_kv: float, voltage_weights: Dict) -> float:
