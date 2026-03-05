@@ -281,7 +281,7 @@
           },
           "status": "completed",
           "notes": "load_estimator: Added skip_existing parameter to estimate_loads() with full propagation through _estimate_loads_national(), _allocate_bus_loads(). When True, buses with existing loads are skipped and target demand is reduced by existing load total. Added _get_buses_with_loads() helper. network_prep: Added extract_ybus(net) convenience function that populates _ppc via pp.runpp() and returns just the Ybus sparse CSC matrix for quick validation (e.g. reconnection mode non-singularity checks). All changes backward-compatible. Verification passes.",
-          "updated_at": "2026-03-05T13:05:00.000000+00:00"
+          "updated_at": "2026-03-05T13:04:15.679959+00:00"
         }
       ]
     },
@@ -311,8 +311,9 @@
             "command": "PYTHONPATH=. python -c \"import pytest; from tests.conftest import make_substation, make_generator, make_transmission_line; print('OK: conftest imports work')\"",
             "expected": "OK: conftest imports work"
           },
-          "status": "pending",
-          "notes": "Add fixtures: isolated_grid_network (network with deliberately isolated substations, lines, generators), reconstruction_config_simplify, reconstruction_config_reconnect, sample_grid_db (in-memory GridDatabase). Add factory function make_isolated_network()."
+          "status": "completed",
+          "notes": "Updated tests/conftest.py with comprehensive fixtures for reconstruction testing. Added: (1) make_isolated_network() factory function creating pandapower networks with deliberately isolated buses/generators (configurable n_main_buses, n_isolated_buses, n_generators), (2) isolated_grid_network fixture (3 main + 2 isolated buses), (3) isolated_grid_network_large fixture (5 main + 4 isolated), (4) fully_connected_network fixture (no isolation, for no-op testing), (5) reconstruction_config_simplify and reconstruction_config_reconnect fixtures with fixed seed=42 and :memory: db_path, (6) sample_grid_db pre-populated with 2 generator/2 substation/1 load attribute records, (7) empty_grid_db for CRUD testing. New imports: pandapower, GridDatabase, ReconstructionConfig, typing.Any. All verification tests pass. Existing test collection unaffected (38 tests in test_pandapower_builder.py still collect).",
+          "updated_at": "2026-03-05T13:11:36.262229+00:00"
         },
         {
           "id": "subtask-5-2",
@@ -330,8 +331,9 @@
             "command": "PYTHONPATH=. pytest tests/test_reconstruction.py -v --tb=short 2>&1 | tail -5",
             "expected": "passed"
           },
-          "status": "pending",
-          "notes": "Tests: test_detect_isolated_substations, test_detect_isolated_generators, test_detect_isolated_lines, test_simplify_removes_isolated, test_simplify_preserves_connected, test_reconnect_creates_links, test_reconnect_ybus_valid, test_reproducibility_same_seed, test_reproducibility_diff_seed, test_load_synthesis_reuses_existing, test_load_synthesis_creates_missing, test_generation_synthesis, test_config_mode_switch."
+          "status": "completed",
+          "notes": "Created tests/test_reconstruction.py with 44 unit tests covering all required areas: isolation detection (substations, generators, lines), simplification (removes isolated, preserves connected, single component, ValueError on all-isolated), reconnection (creates links, Ybus valid, synthetic line names, noop on connected), reproducibility (same seed identical output, different seeds differ), load synthesis (reuses existing, creates missing, values positive, total matches target), generation synthesis (scales to demand+reserve, no exceed capacity, skips existing dispatch, skips when no loads), config mode switching (simplify vs reconnect, invalid mode, pipeline metadata), and pipeline result (summary keys, warnings aggregated). All 44 tests pass. Existing tests (38 in test_pandapower_builder.py) unaffected.",
+          "updated_at": "2026-03-05T13:17:30.381396+00:00"
         },
         {
           "id": "subtask-5-3",
@@ -349,8 +351,9 @@
             "command": "PYTHONPATH=. pytest tests/test_db.py -v --tb=short 2>&1 | tail -5",
             "expected": "passed"
           },
-          "status": "pending",
-          "notes": "Tests: test_db_create_and_read, test_db_update_attributes, test_db_schema_migration, test_db_versioning, test_db_upsert_generator, test_db_upsert_substation, test_db_upsert_load, test_db_list_all."
+          "status": "completed",
+          "notes": "Created tests/test_db.py with 70 unit tests across 11 test classes covering: schema definition (table existence, column validation, repr), GridDatabase initialisation (in-memory, file-based, data persistence), generator CRUD (create/read, partial upsert, overwrite, timestamps, delete, list, invalid attrs, storage fields, UC cost fields), substation CRUD (create/read, partial upsert, delete, list, tap range fields), load CRUD (create/read, partial upsert, delete, list, in_service default, source field), bulk operations (get_all_attributes keys/empty/populated), sample_grid_db fixture validation (coal/nuclear gen, substations, loads), schema versioning (initial version, persistence, table population), migration manager (empty db version, ensure_schema creates tables/returns version/idempotent, apply_pending, custom migration applied, data preservation, get_table_columns, registered migrations sequential/v1 exists), SQLite pragmas (WAL mode, foreign keys), edge cases (minimal record, multiple upserts, delete+recreate, 100 records, unicode, cross-table independence). All 70 tests pass.",
+          "updated_at": "2026-03-05T14:00:00.000000+00:00"
         },
         {
           "id": "subtask-5-4",
@@ -561,12 +564,12 @@
   "planStatus": "in_progress",
   "xstateState": "coding",
   "executionPhase": "coding",
-  "updated_at": "2026-03-05T13:00:37.944Z",
+  "updated_at": "2026-03-05T13:18:02.616Z",
   "lastEvent": {
     "eventId": "96a6909e-5bc3-4319-834a-d749d0d8f49e",
     "sequence": 0,
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-03-05T12:15:05.064039+00:00"
   },
-  "last_updated": "2026-03-05T12:59:40.892814+00:00"
+  "last_updated": "2026-03-05T13:17:30.381403+00:00"
 }
