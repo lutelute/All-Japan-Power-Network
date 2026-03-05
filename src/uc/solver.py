@@ -403,6 +403,9 @@ def _select_solver(params: UCParameters) -> pulp.apis.LpSolver:
     if params.mip_gap is not None:
         solver_kwargs["gapRel"] = params.mip_gap
 
+    if params.solver_options:
+        solver_kwargs.update(params.solver_options)
+
     # Try HiGHS first if requested
     if params.solver_name.upper() in ("HIGHS", "HIGHS_CMD"):
         try:
