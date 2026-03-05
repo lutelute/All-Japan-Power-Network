@@ -103,3 +103,16 @@ defaults:
       initial_soc_fraction: 0.5
       min_terminal_soc_fraction: 0.2
       storage_capacity_mwh: 200
+
+# Inter-regional transmission interconnection constraints
+# When enabled, the solver adds transmission capacity limits between adjacent
+# grid regions (e.g., hokkaido-tohoku, tohoku-tokyo, etc.) to model realistic
+# power flow bottlenecks across the Japanese electricity system.
+# enabled: set to true to activate interconnection constraints in the UC solver
+#   (default false preserves existing single-region behavior)
+# data_path: path to YAML file defining interconnection capacities (MW) per link
+# regional_demand_path: path to YAML file mapping regional demand profiles
+interconnection:
+  enabled: false
+  data_path: data/reference/interconnections.yaml
+  regional_demand_path: config/regional_demand.yaml
