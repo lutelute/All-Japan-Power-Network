@@ -608,6 +608,126 @@ function setStatus(msg) {
     if (el) el.textContent = msg;
 }
 
+// ── CSV Download ──
+
+function geojsonToCSV(geojson, columns) {
+    if (!geojson || !geojson.features || !geojson.features.length) return null;
+
+    // Auto-detect columns if not specified
+    if (!columns) {
+        var keySet = {};
+        for (var i = 0; i < Math.min(geojson.features.length, 50); i++) {
+            var p = geojson.features[i].properties;
+            for (var k in p) {
+                if (k.charAt(0) !== "_") keySet[k] = true;
+            }
+        }
+        // Add lat/lon
+        keySet["latitude"] = true;
+        keySet["longitude"] = true;
+        columns = Object.keys(keySet).sort();
+    }
+
+    var rows = [columns.join(",")];
+    for (var j = 0; j < geojson.features.length; j++) {
+        var feat = geojson.features[j];
+        var props = feat.properties;
+        var coords = feat.geometry ? feat.geometry.coordinates : [];
+        var vals = [];
+        for (var c = 0; c < columns.length; c++) {
+            var col = columns[c];
+            var val;
+            if (col === "latitude") val = coords.length >= 2 ? coords[1] : "";
+            else if (col === "longitude") val = coords.length >= 2 ? coords[0] : "";
+            else val = props[col];
+
+            if (val == null) val = "";
+            val = String(val);
+            // Escape CSV: quote if contains comma, newline, or quote
+            if (val.indexOf(",") >= 0 || val.indexOf("\n") >= 0 || val.indexOf('"') >= 0) {
+                val = '"' + val.replace(/"/g, '""') + '"';
+            }
+            vals.push(val);
+        }
+        rows.push(vals.join(","));
+    }
+    return rows.join("\n");
+}
+
+function downloadCSV(csv, filename) {
+    var bom = "\uFEFF"; // UTF-8 BOM for Excel compatibility
+    var blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+var GEN_CSV_COLUMNS = [
+    "name", "operator", "region", "fuel_type", "fuel_type_ja", "fuel_type_en",
+    "category", "dispatchable", "capacity_mw", "p_min_mw",
+    "ramp_up_mw_per_h", "ramp_down_mw_per_h",
+    "min_up_time_h", "min_down_time_h", "startup_time_h", "shutdown_time_h",
+    "startup_cost_jpy", "shutdown_cost_jpy", "fuel_cost_per_mwh_jpy",
+    "heat_rate_kj_per_kwh", "co2_intensity_kg_per_mwh",
+    "planned_outage_rate", "forced_outage_rate", "capacity_factor",
+    "typical_lifetime_years", "typical_construction_years",
+    "latitude", "longitude",
+];
+
+var SUB_CSV_COLUMNS = [
+    "name", "name_en", "name_reading", "operator", "operator_en",
+    "region", "region_ja",
+    "voltage_kv", "voltage_source", "voltage_label", "frequency_hz", "rating",
+    "substation_type", "category", "category_ja", "gas_insulated", "building",
+    "ref", "addr_city", "addr_province", "website", "operator_wikidata",
+    "latitude", "longitude",
+];
+
+var LINE_CSV_COLUMNS = null; // auto-detect
+
+async function downloadGeneratorsCSV() {
+    var data = enrichedGenData;
+    if (!data) {
+        try {
+            var res = await fetch("./data/generators.geojson");
+            if (res.ok) data = await res.json();
+        } catch (e) {}
+    }
+    if (!data) { alert("Generator data not available"); return; }
+    var csv = geojsonToCSV(data, GEN_CSV_COLUMNS);
+    downloadCSV(csv, "generators.csv");
+}
+
+async function downloadSubstationsCSV() {
+    var data = enrichedSubData;
+    if (!data) {
+        try {
+            var res = await fetch("./data/substations.geojson");
+            if (res.ok) data = await res.json();
+        } catch (e) {}
+    }
+    if (!data) { alert("Substation data not available"); return; }
+    var csv = geojsonToCSV(data, SUB_CSV_COLUMNS);
+    downloadCSV(csv, "substations.csv");
+}
+
+async function downloadLinesCSV() {
+    // Use currently loaded line data, or fetch all
+    var data = rawLineData;
+    if (!data) {
+        try {
+            var res = await fetch("./data/lines_all.geojson");
+            if (res.ok) data = await res.json();
+        } catch (e) {}
+    }
+    if (!data) { alert("Line data not available"); return; }
+    var csv = geojsonToCSV(data, LINE_CSV_COLUMNS);
+    downloadCSV(csv, "transmission_lines.csv");
+}
+
 // ── Init ──
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -649,6 +769,14 @@ document.addEventListener("DOMContentLoaded", function () {
             loadPlantData().then(function () { renderLayers(); });
         });
     }
+
+    // CSV download buttons
+    var dlGen = document.getElementById("dl-generators");
+    var dlSub = document.getElementById("dl-substations");
+    var dlLines = document.getElementById("dl-lines");
+    if (dlGen) dlGen.addEventListener("click", downloadGeneratorsCSV);
+    if (dlSub) dlSub.addEventListener("click", downloadSubstationsCSV);
+    if (dlLines) dlLines.addEventListener("click", downloadLinesCSV);
 
     // Load enriched data, then load map data
     loadEnrichedData().then(function () {

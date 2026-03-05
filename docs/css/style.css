@@ -216,6 +216,16 @@ body {
     width: 18px; height: 3px; border-radius: 2px; display: inline-block;
 }
 
+/* ── Download buttons ── */
+.download-section { margin-top: auto; }
+.download-btns { display: flex; flex-direction: column; gap: 4px; }
+.btn-download {
+    background: #0f3460; color: #e0e0e0; border: 1px solid #0f3460;
+    border-radius: 5px; padding: 7px 10px; font-size: 0.8rem;
+    cursor: pointer; transition: background 0.12s; text-align: left;
+}
+.btn-download:hover { background: #16213e; border-color: #e94560; }
+
 /* ── Detail popup (generators & substations) ── */
 .detail-popup { font-size: 0.78rem; line-height: 1.6; max-width: 320px; }
 .detail-popup h3 { font-size: 0.92rem; margin-bottom: 4px; }

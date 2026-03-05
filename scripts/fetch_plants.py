@@ -69,24 +69,28 @@ def normalize_fuel(source_str):
 
 
 def parse_capacity_mw(val):
-    """Parse capacity string to MW float."""
+    """Parse capacity string to MW float.
+
+    OSM convention: plant:output:electricity is in watts (W) when
+    no unit suffix is present.  Explicit suffixes (MW, kW, GW) are
+    honoured directly.
+    """
     if not val:
         return None
-    s = str(val).strip().lower()
+    s = str(val).strip().lower().replace(",", "").replace(" ", "")
     try:
         if s.endswith("gw"):
-            return round(float(s[:-2].strip()) * 1000, 1)
+            return round(float(s[:-2]) * 1000, 1)
         elif s.endswith("mw"):
-            return round(float(s[:-2].strip()), 1)
+            return round(float(s[:-2]), 1)
         elif s.endswith("kw"):
-            return round(float(s[:-2].strip()) / 1000, 2)
+            return round(float(s[:-2]) / 1000, 2)
         elif s.endswith("w"):
-            return round(float(s[:-1].strip()) / 1_000_000, 3)
+            return round(float(s[:-1]) / 1_000_000, 3)
         else:
+            # No unit → assume watts (OSM convention)
             v = float(s)
-            if v > 10000:
-                return round(v / 1_000_000, 2)
-            return round(v, 1)
+            return round(v / 1_000_000, 2) if v >= 1000 else round(v, 1)
     except (ValueError, TypeError):
         return None
 
