@@ -86,6 +86,65 @@ All data is extracted from [OpenStreetMap](https://www.openstreetmap.org/) using
 
 License / ライセンス: [ODbL](https://opendatacommons.org/licenses/odbl/) (OpenStreetMap)
 
+### Data Enrichment Pipeline / データエンリッチメント パイプライン
+
+Raw OSM data contains many features with missing attributes (name, operator, fuel type). A 6-stage enrichment pipeline fills these gaps programmatically.
+
+OSM の生データには属性（名称、事業者、燃料種別）が欠落したフィーチャが多数存在します。6段階のエンリッチメントパイプラインでこれらを自動補完します。
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Enrichment Pipeline Flow                        │
+│                                                                     │
+│  [1] audit_data_quality.py ──── Baseline audit (107,383 placeholders)│
+│       │                                                             │
+│  [2] enrich_substations_geocode.py --promote-names                  │
+│       │   Nominatim reverse geocoding → {area}変電所                 │
+│       │   Dedup suffixes (_2, _3) for same-name conflicts           │
+│       │                                                             │
+│  [3] enrich_plants_p03.py                                           │
+│       │   P03 national dataset spatial matching                     │
+│       │   + operator name normalization                             │
+│       │                                                             │
+│  [4] enrich_overpass_tags.py                                        │
+│       │   Batch Overpass API queries (100 IDs/batch)                │
+│       │   name, operator, fuel_type from OSM tags                   │
+│       │   Cache: data/cache/overpass_tags.json                      │
+│       │                                                             │
+│  [5] enrich_plants_geocode.py                                       │
+│       │   Nominatim reverse geocoding → {area}発電所                 │
+│       │   1.1s rate limit, cache: data/cache/plants_geocode.json    │
+│       │                                                             │
+│  [6] enrich_lines_endpoints.py                                      │
+│       │   Match line start/end to nearest substation (≤50km)        │
+│       │   Name format: {from}~{to}線 / {operator} {voltage}kV線     │
+│       │                                                             │
+│  [7] audit_data_quality.py ──── Final validation                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Results / 結果:**
+
+| Layer | Total | Before | After | Resolution |
+|-------|-------|--------|-------|------------|
+| Substations / 変電所 | 6,962 | 3,114 unnamed | **0** | 100% |
+| Plants / 発電所 | 19,138 | 16,102 unnamed | **0** | 100% |
+| Lines / 送電線 | 40,077 | 30,168 unnamed | **2** | 99.99% |
+
+```bash
+# Run full pipeline / パイプライン全体を実行
+python scripts/enrich_all.py
+
+# Single region / 特定地域のみ
+python scripts/enrich_all.py --region hokuriku
+
+# Dry run (show execution plan) / ドライラン
+python scripts/enrich_all.py --dry-run
+```
+
+See [WHITEPAPER.md](WHITEPAPER.md) Section 4 for detailed methodology.
+詳細な方法論は [WHITEPAPER.md](WHITEPAPER.md) セクション4を参照。
+
 ## Interactive Map (GitHub Pages) / インタラクティブマップ
 
 The static site at `docs/` renders all regions on a Leaflet.js dark map with voltage-based coloring.
