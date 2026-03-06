@@ -332,6 +332,37 @@ class GridNetwork:
             if sub.id not in connected_ids
         ]
 
+    def get_isolated_generators(self) -> List[Generator]:
+        """Find generators whose connected_bus_id does not match any substation.
+
+        A generator is considered isolated if its ``connected_bus_id`` is
+        empty or does not correspond to any substation ID in the network.
+
+        Returns:
+            List of Generator instances with unresolved bus connections.
+        """
+        return [
+            gen for gen in self.generators
+            if not gen.connected_bus_id
+            or gen.connected_bus_id not in self._substation_index
+        ]
+
+    def get_orphaned_lines(self) -> List[TransmissionLine]:
+        """Find transmission lines with at least one unresolved endpoint.
+
+        A line is considered orphaned if its ``from_substation_id`` or
+        ``to_substation_id`` does not correspond to any substation ID
+        in the network.
+
+        Returns:
+            List of TransmissionLine instances with unresolved endpoints.
+        """
+        return [
+            line for line in self.transmission_lines
+            if line.from_substation_id not in self._substation_index
+            or line.to_substation_id not in self._substation_index
+        ]
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

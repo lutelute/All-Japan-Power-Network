@@ -4,13 +4,18 @@ Provides reusable fixtures for:
 - Mock Substation, TransmissionLine, and Generator objects
 - Sample GridNetwork instances (regional and national)
 - Temporary output directories for test isolation
+- Isolated network scenarios for reconstruction testing
+- Reconstruction configuration objects (simplify / reconnect modes)
+- In-memory GridDatabase for database layer testing
 """
 
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
+import pandapower as pp
 import pytest
 
+from src.db.grid_db import GridDatabase
 from src.model.generator import Generator
 from src.model.grid_network import GridNetwork
 from src.model.substation import (
@@ -21,6 +26,7 @@ from src.model.substation import (
     VoltageClass,
 )
 from src.model.transmission_line import TransmissionLine
+from src.reconstruction.config import ReconstructionConfig
 from src.uc.models import Interconnection
 
 
@@ -694,3 +700,259 @@ def two_region_networks(
     Includes a Shikoku (60 Hz) and Hokkaido (50 Hz) network.
     """
     return [sample_grid_network, sample_grid_network_50hz]
+
+
+# ======================================================================
+# Isolated network fixtures (for reconstruction testing)
+# ======================================================================
+
+
+def make_isolated_network(
+    n_main_buses: int = 3,
+    n_isolated_buses: int = 2,
+    n_generators: int = 2,
+    f_hz: int = 60,
+    name: str = "test_isolated_network",
+) -> Any:
+    """Factory function to create a pandapower network with isolated elements.
+
+    Builds a network containing:
+    - A connected "main" subnetwork of *n_main_buses* buses linked in
+      a chain, with an ext_grid on bus 0 and a generator on bus 1.
+    - *n_isolated_buses* additional buses that have **no** connecting
+      lines (completely disconnected).
+    - A generator placed on the first isolated bus so that isolation
+      detection can identify isolated generators.
+
+    The resulting network is intentionally ill-formed for power flow
+    (it has unsupplied buses), making it suitable for testing the
+    reconstruction pipeline's simplification and reconnection modes.
+
+    Args:
+        n_main_buses: Number of buses in the main connected component.
+            Must be >= 2 to form at least one line.
+        n_isolated_buses: Number of isolated (disconnected) buses.
+        n_generators: Number of generators to create on the main
+            component (placed on the first *n_generators* main buses).
+        f_hz: Network frequency in Hz.
+        name: Name for the pandapower network.
+
+    Returns:
+        A pandapower network with both connected and isolated elements.
+    """
+    net = pp.create_empty_network(name=name, f_hz=f_hz)
+
+    # --- Main connected component: chain of buses ---
+    main_bus_indices = []
+    for i in range(n_main_buses):
+        bus_idx = pp.create_bus(
+            net,
+            vn_kv=275.0,
+            name=f"main_bus_{i}",
+            geodata=(133.5 + i * 0.1, 33.8 + i * 0.05),
+        )
+        main_bus_indices.append(bus_idx)
+
+    # Connect main buses in a chain with lines
+    for i in range(len(main_bus_indices) - 1):
+        pp.create_line_from_parameters(
+            net,
+            from_bus=main_bus_indices[i],
+            to_bus=main_bus_indices[i + 1],
+            length_km=30.0 + i * 10.0,
+            r_ohm_per_km=0.028,
+            x_ohm_per_km=0.325,
+            c_nf_per_km=12.24,
+            max_i_ka=2.0,
+            name=f"main_line_{i}_{i+1}",
+        )
+
+    # Ext_grid on the first main bus (slack)
+    pp.create_ext_grid(net, bus=main_bus_indices[0], vm_pu=1.0, name="slack")
+
+    # Generators on the first n_generators main buses
+    for i in range(min(n_generators, n_main_buses)):
+        pp.create_gen(
+            net,
+            bus=main_bus_indices[i],
+            p_mw=500.0 - i * 100.0,
+            vm_pu=1.0,
+            name=f"main_gen_{i}",
+        )
+
+    # --- Isolated buses (no line connections) ---
+    isolated_bus_indices = []
+    for i in range(n_isolated_buses):
+        bus_idx = pp.create_bus(
+            net,
+            vn_kv=187.0,
+            name=f"isolated_bus_{i}",
+            geodata=(134.0 + i * 0.2, 34.5 + i * 0.1),
+        )
+        isolated_bus_indices.append(bus_idx)
+
+    # Place a generator on the first isolated bus to test
+    # isolated generator detection
+    if isolated_bus_indices:
+        pp.create_gen(
+            net,
+            bus=isolated_bus_indices[0],
+            p_mw=50.0,
+            vm_pu=1.0,
+            name="isolated_gen_0",
+        )
+
+    return net
+
+
+@pytest.fixture
+def isolated_grid_network() -> Any:
+    """Return a pandapower network with deliberately isolated elements.
+
+    Contains 3 main connected buses, 2 isolated buses, and a
+    generator on the first isolated bus.  Suitable for testing
+    the reconstruction pipeline's isolation detection, simplification,
+    and reconnection modes.
+    """
+    return make_isolated_network(
+        n_main_buses=3,
+        n_isolated_buses=2,
+        n_generators=2,
+    )
+
+
+@pytest.fixture
+def isolated_grid_network_large() -> Any:
+    """Return a larger pandapower network with more isolated elements.
+
+    Contains 5 main connected buses, 4 isolated buses, and
+    3 generators on the main component.  Useful for testing
+    reconnection at scale and Ybus matrix sizing.
+    """
+    return make_isolated_network(
+        n_main_buses=5,
+        n_isolated_buses=4,
+        n_generators=3,
+        name="test_isolated_large",
+    )
+
+
+@pytest.fixture
+def fully_connected_network() -> Any:
+    """Return a pandapower network with no isolated elements.
+
+    All buses are part of a single connected component.  Useful for
+    verifying that the reconstruction pipeline is a no-op when there
+    is nothing to reconstruct.
+    """
+    return make_isolated_network(
+        n_main_buses=4,
+        n_isolated_buses=0,
+        n_generators=2,
+        name="test_fully_connected",
+    )
+
+
+# ======================================================================
+# Reconstruction configuration fixtures
+# ======================================================================
+
+
+@pytest.fixture
+def reconstruction_config_simplify() -> ReconstructionConfig:
+    """Return a ReconstructionConfig in simplify mode with a fixed seed."""
+    return ReconstructionConfig(
+        mode="simplify",
+        seed=42,
+        min_component_size=2,
+        reserve_margin=0.05,
+        skip_existing_loads=True,
+        skip_existing_generation=True,
+        db_path=":memory:",
+    )
+
+
+@pytest.fixture
+def reconstruction_config_reconnect() -> ReconstructionConfig:
+    """Return a ReconstructionConfig in reconnect mode with a fixed seed."""
+    return ReconstructionConfig(
+        mode="reconnect",
+        seed=42,
+        min_reactance_ohm_per_km=0.001,
+        min_component_size=2,
+        max_reconnection_distance_km=200.0,
+        default_voltage_kv=66.0,
+        reserve_margin=0.05,
+        skip_existing_loads=True,
+        skip_existing_generation=True,
+        db_path=":memory:",
+    )
+
+
+# ======================================================================
+# Database fixtures
+# ======================================================================
+
+
+@pytest.fixture
+def sample_grid_db() -> GridDatabase:
+    """Return an in-memory GridDatabase pre-populated with sample data.
+
+    Contains:
+    - 2 generator attribute records (coal and nuclear)
+    - 2 substation attribute records
+    - 1 load attribute record
+
+    The in-memory database is discarded after each test for isolation.
+    """
+    db = GridDatabase(":memory:")
+
+    # Generator attributes
+    db.upsert_generator_attributes(
+        "gen_coal_001",
+        fuel_type="coal",
+        capacity_mw=1460.0,
+        fuel_cost_per_mwh=25.0,
+        startup_cost=50000.0,
+        min_up_time_h=8,
+        min_down_time_h=6,
+    )
+    db.upsert_generator_attributes(
+        "gen_nuclear_001",
+        fuel_type="nuclear",
+        capacity_mw=890.0,
+        fuel_cost_per_mwh=8.0,
+        startup_cost=200000.0,
+        min_up_time_h=48,
+        min_down_time_h=48,
+    )
+
+    # Substation attributes
+    db.upsert_substation_attributes(
+        "sub_001",
+        voltage_setpoint_pu=1.02,
+        tap_ratio=1.0,
+        zone="shikoku",
+    )
+    db.upsert_substation_attributes(
+        "sub_002",
+        voltage_setpoint_pu=1.00,
+        tap_ratio=1.0,
+        zone="shikoku",
+    )
+
+    # Load attributes
+    db.upsert_load_attributes(
+        "load_001",
+        load_model="constant_power",
+        power_factor=0.95,
+        scaling_factor=1.0,
+    )
+
+    return db
+
+
+@pytest.fixture
+def empty_grid_db() -> GridDatabase:
+    """Return an empty in-memory GridDatabase for testing CRUD operations."""
+    return GridDatabase(":memory:")

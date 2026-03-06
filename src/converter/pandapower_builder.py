@@ -10,6 +10,10 @@ Handles Japan's dual-frequency system:
 For national (merged) models with ``frequency_hz=0``, the builder
 defaults to 50 Hz but accepts a configurable override.
 
+Optionally integrates with the reconstruction pipeline to handle
+isolated network elements via simplification or reconnection before
+producing the final pandapower network.
+
 Usage::
 
     from src.converter.pandapower_builder import PandapowerBuilder
@@ -18,10 +22,17 @@ Usage::
     result = builder.build(grid_network)
     net = result.net
     # pp.runpp(net)  # Run power flow
+
+    # With reconstruction:
+    from src.reconstruction.config import ReconstructionConfig
+
+    cfg = ReconstructionConfig(mode="simplify", seed=42)
+    result = builder.build(grid_network, reconstruction_config=cfg)
+    net = result.net  # Reconstructed network
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandapower as pp
 
@@ -64,6 +75,11 @@ class BuildResult:
         generators_created: Number of generators created.
         ext_grids_created: Number of external grid connections created.
         warnings: List of warning messages encountered during building.
+        reconstruction_result: Optional result from the reconstruction
+            pipeline.  Only set when ``build()`` is called with a
+            ``reconstruction_config``.  The type is
+            :class:`~src.reconstruction.pipeline.PipelineResult` but
+            declared as ``Any`` to avoid circular imports.
     """
 
     net: Any  # pandapowerNet (avoid type annotation for portability)
@@ -74,17 +90,21 @@ class BuildResult:
     generators_created: int = 0
     ext_grids_created: int = 0
     warnings: List[str] = field(default_factory=list)
+    reconstruction_result: Optional[Any] = None
 
     @property
     def summary(self) -> Dict[str, object]:
         """Return a summary dict for logging."""
-        return {
+        result: Dict[str, object] = {
             "buses": self.buses_created,
             "lines": self.lines_created,
             "generators": self.generators_created,
             "ext_grids": self.ext_grids_created,
             "warnings": len(self.warnings),
         }
+        if self.reconstruction_result is not None:
+            result["reconstruction"] = self.reconstruction_result.summary
+        return result
 
 
 class PandapowerBuilder:
@@ -94,6 +114,12 @@ class PandapowerBuilder:
     with Japanese electrical parameters), generators (with ``vm_pu`` voltage
     setpoints), and external grid connections (slack bus) required for power
     flow convergence.
+
+    When a :class:`~src.reconstruction.config.ReconstructionConfig` is
+    supplied to :meth:`build`, the builder will additionally run the
+    :class:`~src.reconstruction.pipeline.ReconstructionPipeline` on the
+    constructed network, handling isolated elements via simplification
+    or reconnection before returning the final result.
 
     Args:
         default_national_f_hz: Frequency to use for national (mixed) models
@@ -107,15 +133,31 @@ class PandapowerBuilder:
             )
         self._default_national_f_hz = default_national_f_hz
 
-    def build(self, network: GridNetwork) -> BuildResult:
+    def build(
+        self,
+        network: GridNetwork,
+        reconstruction_config: Optional[Any] = None,
+    ) -> BuildResult:
         """Build a pandapower network from a GridNetwork.
 
         Processes substations → buses, transmission lines → lines,
         generators → gen elements, and designates a slack bus with
         ``create_ext_grid()``.
 
+        When *reconstruction_config* is provided, the constructed
+        network is passed through the
+        :class:`~src.reconstruction.pipeline.ReconstructionPipeline`
+        to handle isolated elements (simplification or reconnection)
+        and synthesise missing load/generation data.  The pipeline
+        result is stored in
+        :attr:`BuildResult.reconstruction_result`.
+
         Args:
             network: The GridNetwork instance to convert.
+            reconstruction_config: Optional reconstruction configuration
+                (:class:`~src.reconstruction.config.ReconstructionConfig`).
+                When ``None`` (default), no reconstruction is performed
+                and the builder behaves identically to previous versions.
 
         Returns:
             BuildResult containing the pandapower network and metadata.
@@ -161,6 +203,10 @@ class PandapowerBuilder:
 
         # Step 5: Infer bus voltages from connected line voltages
         self._infer_bus_voltages(net, network, result)
+
+        # Step 6 (optional): Run reconstruction pipeline
+        if reconstruction_config is not None:
+            self._run_reconstruction(net, network, reconstruction_config, result)
 
         logger.info(
             "Built pandapower network '%s': %s",
@@ -607,6 +653,70 @@ class PandapowerBuilder:
             "Voltage inference: fixed %d/%d zero-voltage buses",
             fixed,
             n_zero,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal: reconstruction pipeline integration
+    # ------------------------------------------------------------------
+
+    def _run_reconstruction(
+        self,
+        net: Any,
+        network: GridNetwork,
+        reconstruction_config: Any,
+        result: BuildResult,
+    ) -> None:
+        """Run the reconstruction pipeline on the built network.
+
+        Lazily imports the reconstruction pipeline to avoid circular
+        dependencies and keep reconstruction an optional feature.
+
+        The pipeline modifies the network in place (``copy_network=False``
+        since the builder already owns the network) and the result is
+        stored in ``result.reconstruction_result``.
+
+        Args:
+            net: The pandapower network built in previous steps.
+            network: Source GridNetwork (used for region identifier).
+            reconstruction_config: A
+                :class:`~src.reconstruction.config.ReconstructionConfig`
+                instance controlling the reconstruction mode, seed,
+                and thresholds.
+            result: BuildResult to update with reconstruction results
+                and warnings.
+        """
+        # Lazy import to avoid circular dependencies and keep
+        # reconstruction optional for callers that don't need it.
+        from src.reconstruction.pipeline import ReconstructionPipeline
+
+        logger.info(
+            "Running reconstruction pipeline (mode=%s, seed=%d) "
+            "on network '%s'",
+            reconstruction_config.mode,
+            reconstruction_config.seed,
+            net.name,
+        )
+
+        pipeline = ReconstructionPipeline(
+            config=reconstruction_config,
+            copy_network=False,  # Builder owns the network; modify in place
+        )
+
+        pipeline_result = pipeline.run(net, region=network.region)
+
+        result.reconstruction_result = pipeline_result
+
+        # Update the net reference in case reconstruction replaced it
+        # (e.g. the pipeline deep-copied internally despite our setting)
+        result.net = pipeline_result.net
+
+        # Propagate reconstruction warnings to the build result
+        result.warnings.extend(pipeline_result.warnings)
+
+        logger.info(
+            "Reconstruction pipeline complete for '%s': %s",
+            net.name,
+            pipeline_result.summary,
         )
 
     # ------------------------------------------------------------------

@@ -1,0 +1,48 @@
+# Reconstruction Pipeline Configuration
+# Controls how isolated network elements are handled during grid reconstruction.
+#
+# Two modes are supported:
+#   - simplify:   Remove isolated elements, producing a clean connected network.
+#   - reconnect:  Generate synthetic connections to reconnect isolated elements,
+#                 then regenerate the Ybus admittance matrix.
+
+# Reconstruction mode: "simplify" or "reconnect"
+mode: simplify
+
+# Random seed for reproducible synthetic data generation.
+# All stochastic operations (load synthesis, reconnection parameter generation)
+# use this seed via numpy.random.default_rng(seed).
+seed: 42
+
+# Minimum reactance (Ohm/km) for synthetic reconnection lines.
+# Prevents Ybus singularity from zero-reactance branches.
+min_reactance_ohm_per_km: 0.001
+
+# Minimum number of buses in a connected component to be considered "main".
+# Components smaller than this are treated as isolated.
+min_component_size: 2
+
+# Maximum search radius (km) for finding a main-component bus to reconnect
+# an isolated bus.  If no bus is found within this radius, the isolated bus
+# is dropped even in reconnect mode.
+max_reconnection_distance_km: 200.0
+
+# Default voltage (kV) for synthetic reconnection lines when the isolated
+# bus has unknown voltage.
+default_voltage_kv: 66.0
+
+# Reserve margin for generation scaling.
+# Target generation = total_demand * (1 + reserve_margin).
+reserve_margin: 0.05
+
+# Whether to skip buses that already have loads during synthesis.
+# When true, existing load data is preserved (not overwritten).
+skip_existing_loads: true
+
+# Whether to skip generators that already have dispatch data.
+# When true, existing generation dispatch is preserved.
+skip_existing_generation: true
+
+# Database path for grid attribute storage (SQLite).
+# Relative to the project root.  Use ":memory:" for in-memory operation.
+db_path: "data/grid_attributes.db"
