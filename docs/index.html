@@ -6,7 +6,7 @@
     <title>All-Japan-Grid</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="./css/style.css?v=6"/>
+    <link rel="stylesheet" href="./css/style.css?v=7"/>
 </head>
 <body>
 
@@ -125,6 +125,14 @@
                         <option value="dc">DC Power Flow (Linear)</option>
                     </select>
                 </div>
+                <div>
+                    <label for="pf-viz">Visualization</label>
+                    <select id="pf-viz" disabled>
+                        <option value="loading" selected>負荷率 Loading Heatmap</option>
+                        <option value="flow">潮流方向 Flow Direction</option>
+                        <option value="thermal">熱容量 Thermal Heatmap</option>
+                    </select>
+                </div>
                 <button class="btn-primary" id="btn-run-pf" disabled>Visualize</button>
             </div>
             <div class="pf-info" style="margin-top:6px">
@@ -154,7 +162,7 @@
 
 <div id="map"></div>
 
-<script src="./js/grid_map.js?v=6"></script>
-<script src="./js/powerflow.js?v=6"></script>
+<script src="./js/grid_map.js?v=7"></script>
+<script src="./js/powerflow.js?v=7"></script>
 </body>
 </html>
