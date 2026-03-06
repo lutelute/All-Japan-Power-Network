@@ -5,8 +5,8 @@
  *  - Loading heatmap (line color by loading %)
  *  - Flow direction (arrows showing power flow, width by MW)
  *  - Thermal heatmap (line width + color emphasis by loading %)
- *  - Bus voltage magnitude heatmap (AC only)
- *  - Summary statistics table
+ *  - Voltage heatmap (bus voltage or angle)
+ *  - Base grid background (all voltage classes from grid_map.js)
  */
 
 (function () {
@@ -20,9 +20,11 @@
         busLayer: null,
         lineLayer: null,
         arrowLayer: null,
+        gridLayer: null,  // base grid background
         active: false,
         busData: null,
         lineData: null,
+        showGrid: true,
         showLines: true,
         showBuses: true,
     };
@@ -94,17 +96,39 @@
         return 6;
     }
 
+    function angleColor(va_deg) {
+        var abs = Math.abs(va_deg);
+        if (abs < 5)   return "#2ecc71";
+        if (abs < 15)  return "#f1c40f";
+        if (abs < 30)  return "#e67e22";
+        return "#e74c3c";
+    }
+
+    var VOLTAGE_COLORS = {
+        500: "#e74c3c", 275: "#e67e22", 220: "#d4a017",
+        187: "#f1c40f", 154: "#2ecc71", 132: "#27ae60",
+        110: "#1abc9c", 100: "#16a085", 77: "#3498db",
+        66: "#2980b9",
+    };
+
+    function voltageClassColor(kv) {
+        if (VOLTAGE_COLORS[kv]) return VOLTAGE_COLORS[kv];
+        if (kv >= 500) return "#e74c3c";
+        if (kv >= 275) return "#e67e22";
+        if (kv >= 154) return "#2ecc71";
+        if (kv >= 66)  return "#2980b9";
+        return "#7f8c8d";
+    }
+
     // ── Geometry helpers ──
 
     function lineMidpoint(coords) {
-        // For multi-point lines, find the geometric midpoint along the polyline
         if (coords.length === 2) {
             return {
                 latlng: [(coords[0][1] + coords[1][1]) / 2, (coords[0][0] + coords[1][0]) / 2],
                 segIdx: 0,
             };
         }
-        // Accumulate segment lengths, find midpoint
         var lengths = [];
         var total = 0;
         for (var i = 1; i < coords.length; i++) {
@@ -159,7 +183,7 @@
         }
     }
 
-    // ── Build region selector ──
+    // ── Region list ──
 
     var ALL_REGIONS = [
         "hokkaido","tohoku","tokyo","chubu","hokuriku",
@@ -172,7 +196,6 @@
         sel.innerHTML = "";
         sel.disabled = false;
 
-        // All Japan option
         var allOpt = document.createElement("option");
         allOpt.value = "all";
         allOpt.textContent = "全国 All Japan";
@@ -213,9 +236,8 @@
             vizSelect.disabled = false;
             vizSelect.addEventListener("change", function () {
                 pfState.viz = this.value;
-                // Re-render with cached data if available
                 if (pfState.lineData) {
-                    clearPFLayers();
+                    removePFOverlays();
                     renderPFLayers(pfState.busData, pfState.lineData, pfState.mode);
                     if (pfState.region === "all") {
                         showAllRegionsResults(pfState.mode, Object.keys(pfState.summary).length);
@@ -234,9 +256,16 @@
         }
 
         // Layer toggles
+        var gridCb = document.getElementById("pf-layer-grid");
         var linesCb = document.getElementById("pf-layer-lines");
         var busesCb = document.getElementById("pf-layer-buses");
 
+        if (gridCb) {
+            gridCb.addEventListener("change", function () {
+                pfState.showGrid = this.checked;
+                updatePFLayerVisibility();
+            });
+        }
         if (linesCb) {
             linesCb.addEventListener("change", function () {
                 pfState.showLines = this.checked;
@@ -254,25 +283,36 @@
     function updatePFLayerVisibility() {
         if (!window.map) return;
 
+        // Base grid layer
+        if (pfState.gridLayer) {
+            if (pfState.showGrid && !window.map.hasLayer(pfState.gridLayer)) {
+                window.map.addLayer(pfState.gridLayer);
+            } else if (!pfState.showGrid && window.map.hasLayer(pfState.gridLayer)) {
+                window.map.removeLayer(pfState.gridLayer);
+            }
+        }
+        // PF line layer
         if (pfState.lineLayer) {
-            if (pfState.showLines) {
-                if (!window.map.hasLayer(pfState.lineLayer)) window.map.addLayer(pfState.lineLayer);
-            } else {
-                if (window.map.hasLayer(pfState.lineLayer)) window.map.removeLayer(pfState.lineLayer);
+            if (pfState.showLines && !window.map.hasLayer(pfState.lineLayer)) {
+                window.map.addLayer(pfState.lineLayer);
+            } else if (!pfState.showLines && window.map.hasLayer(pfState.lineLayer)) {
+                window.map.removeLayer(pfState.lineLayer);
             }
         }
+        // Arrow layer
         if (pfState.arrowLayer) {
-            if (pfState.showLines) {
-                if (!window.map.hasLayer(pfState.arrowLayer)) window.map.addLayer(pfState.arrowLayer);
-            } else {
-                if (window.map.hasLayer(pfState.arrowLayer)) window.map.removeLayer(pfState.arrowLayer);
+            if (pfState.showLines && !window.map.hasLayer(pfState.arrowLayer)) {
+                window.map.addLayer(pfState.arrowLayer);
+            } else if (!pfState.showLines && window.map.hasLayer(pfState.arrowLayer)) {
+                window.map.removeLayer(pfState.arrowLayer);
             }
         }
+        // Bus layer
         if (pfState.busLayer) {
-            if (pfState.showBuses) {
-                if (!window.map.hasLayer(pfState.busLayer)) window.map.addLayer(pfState.busLayer);
-            } else {
-                if (window.map.hasLayer(pfState.busLayer)) window.map.removeLayer(pfState.busLayer);
+            if (pfState.showBuses && !window.map.hasLayer(pfState.busLayer)) {
+                window.map.addLayer(pfState.busLayer);
+            } else if (!pfState.showBuses && window.map.hasLayer(pfState.busLayer)) {
+                window.map.removeLayer(pfState.busLayer);
             }
         }
     }
@@ -284,7 +324,7 @@
         var mode = pfState.mode;
         if (!region || !pfState.summary) return;
 
-        clearPFLayers();
+        clearAllPFLayers();
         pfState.busData = null;
         pfState.lineData = null;
 
@@ -318,6 +358,9 @@
 
             pfState.busData = busData;
             pfState.lineData = lineData;
+
+            // Show base grid background for this region
+            showBaseGrid(region);
 
             renderPFLayers(busData, lineData, mode);
             showResults(region, mode, info, true);
@@ -368,19 +411,61 @@
         pfState.busData = mergedBus;
         pfState.lineData = mergedLine;
 
+        showBaseGrid("all");
         renderPFLayers(mergedBus, mergedLine, mode);
         showAllRegionsResults(mode, loadedCount);
 
-        // Zoom to Japan extent
         if (window.map) {
             window.map.fitBounds([[24, 123], [46, 146]]);
         }
     }
 
-    // ── Render layers based on viz mode ──
+    // ── Base grid background ──
+
+    function showBaseGrid(region) {
+        // Remove existing
+        if (pfState.gridLayer && window.map) {
+            window.map.removeLayer(pfState.gridLayer);
+            pfState.gridLayer = null;
+        }
+
+        // Use rawLineData from grid_map.js (already loaded, no extra fetch)
+        var data = window.rawLineData;
+        if (!data || !data.features) return;
+
+        // Filter by region if not "all"
+        var features = data.features;
+        if (region !== "all") {
+            features = features.filter(function (f) {
+                return f.properties._region === region;
+            });
+        }
+
+        var filtered = { type: "FeatureCollection", features: features };
+
+        pfState.gridLayer = L.geoJSON(filtered, {
+            style: function (feature) {
+                var kv = feature.properties._voltage_kv || 0;
+                return {
+                    color: voltageClassColor(kv),
+                    weight: 1,
+                    opacity: 0.25,
+                };
+            },
+            interactive: false,  // no popups, no click events — pure background
+        });
+
+        if (pfState.showGrid) {
+            pfState.gridLayer.addTo(window.map);
+            // Ensure it's behind PF layers
+            pfState.gridLayer.bringToBack();
+        }
+    }
+
+    // ── Render PF layers based on viz mode ──
 
     function renderPFLayers(busData, lineData, mode) {
-        clearPFLayers();
+        removePFOverlays();
         if (!window.map) return;
 
         var viz = pfState.viz;
@@ -397,31 +482,22 @@
             }
         }
 
-        // Apply layer visibility from checkboxes
         updatePFLayerVisibility();
     }
 
-    // ── Voltage mode (bus voltage heatmap, lines as context) ──
+    // ── Voltage mode ──
 
     function renderVoltageMode(busData, lineData, mode) {
-        // Lines as thin grey context
+        // Lines as thin context (slightly more visible than base grid)
         if (lineData && lineData.features && lineData.features.length > 0) {
             pfState.lineLayer = L.geoJSON(lineData, {
                 style: function () {
-                    return { color: "#555", weight: 1.5, opacity: 0.4 };
+                    return { color: "#888", weight: 1.5, opacity: 0.4 };
                 },
-                onEachFeature: function (feature, layer) {
-                    var p = feature.properties;
-                    layer.bindPopup(
-                        "<b>" + (p.name || "Line") + "</b><br>" +
-                        "Loading: " + p.loading_pct + "%<br>" +
-                        "P: " + p.p_mw + " MW"
-                    );
-                },
+                onEachFeature: linePopup,
             }).addTo(window.map);
         }
 
-        // Bus voltage heatmap (AC shows real voltage, DC shows angle-based coloring)
         if (busData && busData.features && busData.features.length > 0) {
             pfState.busLayer = L.geoJSON(busData, {
                 pointToLayer: function (feature, latlng) {
@@ -437,28 +513,12 @@
                         fillOpacity: 0.9,
                     });
                 },
-                onEachFeature: function (feature, layer) {
-                    var p = feature.properties;
-                    layer.bindPopup(
-                        "<b>" + (p.name || "Bus") + "</b><br>" +
-                        "V: " + p.vm_pu + " pu<br>" +
-                        "Angle: " + p.va_deg + "&deg;<br>" +
-                        "Vn: " + p.vn_kv + " kV"
-                    );
-                },
+                onEachFeature: busPopup,
             }).addTo(window.map);
         }
     }
 
-    function angleColor(va_deg) {
-        var abs = Math.abs(va_deg);
-        if (abs < 5)   return "#2ecc71";
-        if (abs < 15)  return "#f1c40f";
-        if (abs < 30)  return "#e67e22";
-        return "#e74c3c";
-    }
-
-    // ── Loading heatmap (original) ──
+    // ── Loading heatmap ──
 
     function renderLoadingHeatmap(lineData) {
         if (!lineData || !lineData.features || lineData.features.length === 0) return;
@@ -472,18 +532,11 @@
                     opacity: 0.85,
                 };
             },
-            onEachFeature: function (feature, layer) {
-                var p = feature.properties;
-                layer.bindPopup(
-                    "<b>" + (p.name || "Line") + "</b><br>" +
-                    "Loading: " + p.loading_pct + "%<br>" +
-                    "P: " + p.p_mw + " MW"
-                );
-            },
+            onEachFeature: linePopup,
         }).addTo(window.map);
     }
 
-    // ── Flow direction (arrows) ──
+    // ── Flow direction ──
 
     function renderFlowDirection(lineData) {
         if (!lineData || !lineData.features || lineData.features.length === 0) return;
@@ -508,7 +561,7 @@
             },
         }).addTo(window.map);
 
-        // Arrow markers at midpoints
+        // Arrow markers
         var arrowGroup = L.layerGroup();
         lineData.features.forEach(function (feature) {
             var coords = feature.geometry.coordinates;
@@ -541,7 +594,7 @@
         pfState.arrowLayer = arrowGroup.addTo(window.map);
     }
 
-    // ── Thermal heatmap (wider lines, stronger color) ──
+    // ── Thermal heatmap ──
 
     function renderThermalHeatmap(lineData) {
         if (!lineData || !lineData.features || lineData.features.length === 0) return;
@@ -571,9 +624,31 @@
         }).addTo(window.map);
     }
 
+    // ── Popup helpers ──
+
+    function linePopup(feature, layer) {
+        var p = feature.properties;
+        layer.bindPopup(
+            "<b>" + (p.name || "Line") + "</b><br>" +
+            "Loading: " + p.loading_pct + "%<br>" +
+            "P: " + p.p_mw + " MW"
+        );
+    }
+
+    function busPopup(feature, layer) {
+        var p = feature.properties;
+        layer.bindPopup(
+            "<b>" + (p.name || "Bus") + "</b><br>" +
+            "V: " + p.vm_pu + " pu<br>" +
+            "Angle: " + p.va_deg + "&deg;<br>" +
+            "Vn: " + p.vn_kv + " kV"
+        );
+    }
+
     // ── Clear layers ──
 
-    function clearPFLayers() {
+    function removePFOverlays() {
+        // Remove PF result layers (not base grid)
         if (pfState.lineLayer && window.map) {
             window.map.removeLayer(pfState.lineLayer);
             pfState.lineLayer = null;
@@ -585,6 +660,14 @@
         if (pfState.arrowLayer && window.map) {
             window.map.removeLayer(pfState.arrowLayer);
             pfState.arrowLayer = null;
+        }
+    }
+
+    function clearAllPFLayers() {
+        removePFOverlays();
+        if (pfState.gridLayer && window.map) {
+            window.map.removeLayer(pfState.gridLayer);
+            pfState.gridLayer = null;
         }
     }
 
@@ -624,7 +707,6 @@
         }
         html += "</div>";
 
-        // Legend (context-sensitive)
         html += buildLegend(mode);
 
         content.innerHTML = html;
@@ -696,6 +778,22 @@
             }
         }
 
+        // Base grid legend (always shown when grid is visible)
+        if (pfState.showGrid) {
+            html += '<div style="font-size:0.72rem;color:#7f8c8d;margin:6px 0 4px">Base Grid (voltage class)</div>';
+            html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+            var gLegend = [
+                ["500 kV", "#e74c3c"], ["275 kV", "#e67e22"], ["154 kV", "#2ecc71"],
+                ["77 kV", "#3498db"], ["66 kV", "#2980b9"],
+            ];
+            for (var n = 0; n < gLegend.length; n++) {
+                html += '<span style="font-size:0.68rem;display:flex;align-items:center;gap:3px">' +
+                    '<span style="width:16px;height:1px;background:' + gLegend[n][1] + ';display:inline-block;opacity:0.5"></span>' +
+                    gLegend[n][0] + '</span>';
+            }
+            html += '</div>';
+        }
+
         html += '</div>';
         return html;
     }
@@ -752,11 +850,6 @@
 
         section.style.display = "block";
 
-        var regions = [
-            "hokkaido","tohoku","tokyo","chubu","hokuriku",
-            "kansai","chugoku","shikoku","kyushu","okinawa",
-        ];
-
         var html = '<table style="width:100%;border-collapse:collapse;font-size:0.72rem">';
         html += '<tr style="color:#7f8c8d;border-bottom:1px solid #0f3460">' +
             '<th style="text-align:left;padding:4px">Region</th>' +
@@ -764,8 +857,8 @@
             '<th>Buses</th><th>Gens</th>' +
             '<th>Loss(MW)</th></tr>';
 
-        for (var i = 0; i < regions.length; i++) {
-            var r = regions[i];
+        for (var i = 0; i < ALL_REGIONS.length; i++) {
+            var r = ALL_REGIONS[i];
             var info = summary[r];
             if (!info) continue;
             var dcCell = info.dc_converged
@@ -810,7 +903,7 @@
         document.querySelectorAll('.tab-btn:not([data-tab="tab-pf"])').forEach(function (btn) {
             btn.addEventListener("click", function () {
                 pfState.active = false;
-                clearPFLayers();
+                clearAllPFLayers();
             });
         });
     }
