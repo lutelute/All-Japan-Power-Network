@@ -23,6 +23,8 @@
         active: false,
         busData: null,
         lineData: null,
+        showLines: true,
+        showBuses: true,
     };
 
     // ── Color scales ──
@@ -94,15 +96,49 @@
 
     // ── Geometry helpers ──
 
-    function midpoint(coords) {
-        return [(coords[0][1] + coords[1][1]) / 2, (coords[0][0] + coords[1][0]) / 2];
+    function lineMidpoint(coords) {
+        // For multi-point lines, find the geometric midpoint along the polyline
+        if (coords.length === 2) {
+            return {
+                latlng: [(coords[0][1] + coords[1][1]) / 2, (coords[0][0] + coords[1][0]) / 2],
+                segIdx: 0,
+            };
+        }
+        // Accumulate segment lengths, find midpoint
+        var lengths = [];
+        var total = 0;
+        for (var i = 1; i < coords.length; i++) {
+            var dx = coords[i][0] - coords[i-1][0];
+            var dy = coords[i][1] - coords[i-1][1];
+            var d = Math.sqrt(dx * dx + dy * dy);
+            lengths.push(d);
+            total += d;
+        }
+        var half = total / 2;
+        var acc = 0;
+        for (var j = 0; j < lengths.length; j++) {
+            if (acc + lengths[j] >= half) {
+                var frac = (half - acc) / lengths[j];
+                var lon = coords[j][0] + frac * (coords[j+1][0] - coords[j][0]);
+                var lat = coords[j][1] + frac * (coords[j+1][1] - coords[j][1]);
+                return { latlng: [lat, lon], segIdx: j };
+            }
+            acc += lengths[j];
+        }
+        var last = coords.length - 1;
+        return {
+            latlng: [(coords[0][1] + coords[last][1]) / 2, (coords[0][0] + coords[last][0]) / 2],
+            segIdx: 0,
+        };
     }
 
-    function bearing(coords) {
-        var lon1 = coords[0][0] * Math.PI / 180;
-        var lat1 = coords[0][1] * Math.PI / 180;
-        var lon2 = coords[1][0] * Math.PI / 180;
-        var lat2 = coords[1][1] * Math.PI / 180;
+    function segmentBearing(coords, segIdx) {
+        var c0 = coords[segIdx];
+        var c1 = coords[segIdx + 1];
+        var lon1 = c0[0] * Math.PI / 180;
+        var lat1 = c0[1] * Math.PI / 180;
+        var lon2 = c1[0] * Math.PI / 180;
+        var lat2 = c1[1] * Math.PI / 180;
         var dLon = lon2 - lon1;
         var y = Math.sin(dLon) * Math.cos(lat2);
         var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
@@ -195,6 +231,49 @@
             runBtn.addEventListener("click", function () {
                 runPF();
             });
+        }
+
+        // Layer toggles
+        var linesCb = document.getElementById("pf-layer-lines");
+        var busesCb = document.getElementById("pf-layer-buses");
+
+        if (linesCb) {
+            linesCb.addEventListener("change", function () {
+                pfState.showLines = this.checked;
+                updatePFLayerVisibility();
+            });
+        }
+        if (busesCb) {
+            busesCb.addEventListener("change", function () {
+                pfState.showBuses = this.checked;
+                updatePFLayerVisibility();
+            });
+        }
+    }
+
+    function updatePFLayerVisibility() {
+        if (!window.map) return;
+
+        if (pfState.lineLayer) {
+            if (pfState.showLines) {
+                if (!window.map.hasLayer(pfState.lineLayer)) window.map.addLayer(pfState.lineLayer);
+            } else {
+                if (window.map.hasLayer(pfState.lineLayer)) window.map.removeLayer(pfState.lineLayer);
+            }
+        }
+        if (pfState.arrowLayer) {
+            if (pfState.showLines) {
+                if (!window.map.hasLayer(pfState.arrowLayer)) window.map.addLayer(pfState.arrowLayer);
+            } else {
+                if (window.map.hasLayer(pfState.arrowLayer)) window.map.removeLayer(pfState.arrowLayer);
+            }
+        }
+        if (pfState.busLayer) {
+            if (pfState.showBuses) {
+                if (!window.map.hasLayer(pfState.busLayer)) window.map.addLayer(pfState.busLayer);
+            } else {
+                if (window.map.hasLayer(pfState.busLayer)) window.map.removeLayer(pfState.busLayer);
+            }
         }
     }
 
@@ -307,10 +386,8 @@
         var viz = pfState.viz;
 
         if (viz === "voltage") {
-            // Voltage-only mode: show bus voltage heatmap, lines as thin grey
             renderVoltageMode(busData, lineData, mode);
         } else {
-            // Flow-based modes: loading, flow direction, thermal
             if (viz === "loading") {
                 renderLoadingHeatmap(lineData);
             } else if (viz === "flow") {
@@ -319,6 +396,9 @@
                 renderThermalHeatmap(lineData);
             }
         }
+
+        // Apply layer visibility from checkboxes
+        updatePFLayerVisibility();
     }
 
     // ── Voltage mode (bus voltage heatmap, lines as context) ──
@@ -434,11 +514,10 @@
             var coords = feature.geometry.coordinates;
             if (!coords || coords.length < 2) return;
             var p_mw = feature.properties.p_mw || 0;
-            if (Math.abs(p_mw) < 0.1) return; // skip negligible flow
+            if (Math.abs(p_mw) < 0.1) return;
 
-            var mid = midpoint(coords);
-            var brng = bearing(coords);
-            // Reverse arrow if power flows to→from (negative p_mw)
+            var midInfo = lineMidpoint(coords);
+            var brng = segmentBearing(coords, midInfo.segIdx);
             if (p_mw < 0) brng = (brng + 180) % 360;
 
             var color = flowColor(p_mw);
@@ -456,7 +535,7 @@
                 iconAnchor: [size / 2, size / 2],
             });
 
-            L.marker(mid, { icon: icon, interactive: false }).addTo(arrowGroup);
+            L.marker(midInfo.latlng, { icon: icon, interactive: false }).addTo(arrowGroup);
         });
 
         pfState.arrowLayer = arrowGroup.addTo(window.map);

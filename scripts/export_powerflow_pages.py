@@ -287,6 +287,10 @@ def export_line_geojson(net, region, geom_lookup, bus_to_sub):
 
         if coords:
             geom_hits += 1
+            # Snap endpoints to bus coordinates so lines connect visually
+            coords = list(coords)  # copy
+            coords[0] = [from_lon, from_lat]
+            coords[-1] = [to_lon, to_lat]
         else:
             geom_misses += 1
             coords = [[from_lon, from_lat], [to_lon, to_lat]]
@@ -336,7 +340,12 @@ def export_line_geojson(net, region, geom_lookup, bus_to_sub):
                     if rev is not None:
                         coords = list(reversed(rev))
 
-            if coords is None:
+            if coords is not None:
+                # Snap endpoints to bus coordinates
+                coords = list(coords)
+                coords[0] = [hv_lon, hv_lat]
+                coords[-1] = [lv_lon, lv_lat]
+            else:
                 coords = [[hv_lon, hv_lat], [lv_lon, lv_lat]]
 
             features.append({
